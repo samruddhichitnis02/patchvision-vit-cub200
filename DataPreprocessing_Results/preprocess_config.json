@@ -1,0 +1,32 @@
+{
+  "seed": 42,
+  "img_size": 224,
+  "batch_size": 64,
+  "mean": [
+    0.4859701097011566,
+    0.49921685457229614,
+    0.43137678503990173
+  ],
+  "std": [
+    0.22647330164909363,
+    0.2219720035791397,
+    0.2609000504016876
+  ],
+  "splits": {
+    "train": 5394,
+    "val": 600,
+    "test": 5794
+  },
+  "eval_transform": "Resize((224,224)) + Normalize",
+  "train_transforms": {
+    "none": "Resize + Normalize",
+    "basic": "RandomResizedCrop(0.5-1.0) + HFlip",
+    "strong": "RandomResizedCrop(0.35-1.0) + HFlip + RandomAffine(10deg, 5% shift, 0.9-1.1 scale) + ColorJitter(b/c/s 0.3, hue 0) + RandomErasing(p=0.25)",
+    "auto": "RandomResizedCrop(0.35-1.0) + HFlip + TrivialAugmentWide + RandomErasing(p=0.25)"
+  },
+  "mixup_cutmix": {
+    "mixup_alpha": 0.2,
+    "cutmix_alpha": 1.0,
+    "p_cutmix": 0.5
+  }
+}
