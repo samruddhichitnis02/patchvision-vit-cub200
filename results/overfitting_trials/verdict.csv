@@ -1,0 +1,5 @@
+trial,min val loss: full - trial,smoothed val acc: trial - full (pts),gap_at_best: trial - full (pts),IMPROVEMENT (rule)
+ovf1_droppath0.3,0.186,2.97,-1.5,True
+ovf2_wd0.1,0.063,1.68,-0.7,True
+ovf3_autoaug,0.18,2.18,-1.3,True
+ovf4_dropout0.1,0.095,2.43,-1.0,True
