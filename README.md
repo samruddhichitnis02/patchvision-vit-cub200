@@ -2,7 +2,7 @@
 
 **Teaching a small Vision Transformer to recognise 200 bird species, starting from nothing, with only about 27 training photos per species.**
 
-This page explains everything we have done so far, in plain language, with pictures and animations that were made from our real runs (nothing here is a mock-up). If a word is new to you, jump to the [word list](#2-words-you-need).
+This page explains everything we have done so far, with pictures and animations that were made from our real runs. If a word is new to you, jump to the [word list](#2-words-you-need).
 
 ---
 
