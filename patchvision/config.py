@@ -177,12 +177,39 @@ def ablation_suite() -> Dict[str, Dict[str, Dict[str, Any]]]:
 
 
 def get_experiment(name: str, seed: int = 42, model_overrides: Optional[Dict[str, Any]] = None,
-                   train_overrides: Optional[Dict[str, Any]] = None) -> ExperimentConfig:
-    """Build an ExperimentConfig from a suite name; extra overrides are applied on top."""
+                   train_overrides: Optional[Dict[str, Any]] = None,
+                   run_name: Optional[str] = None) -> ExperimentConfig:
+    """Build an ExperimentConfig from a suite name; extra overrides are applied on top.
+    `run_name` sets the results folder (results/<run_name>/seed<seed>); without it the suite name is used,
+    so a modified copy of 'full' would otherwise overwrite / reuse the folder of the real 'full' run."""
     suite = ablation_suite()
     if name not in suite:
         raise KeyError(f"unknown experiment {name!r}. Available: {list(suite)}")
     spec = copy.deepcopy(suite[name])
     m = {**spec["model"], **(model_overrides or {})}
     t = {**spec["train"], **(train_overrides or {})}
-    return ExperimentConfig(name=name, seed=seed, model=_build(ModelConfig, m), train=_build(TrainConfig, t))
+    return ExperimentConfig(name=run_name or name, seed=seed, model=_build(ModelConfig, m),
+                            train=_build(TrainConfig, t))
+
+
+# ----------------------------------------------------------------------------------------------
+# Overfitting trials: ONE change at a time on top of the 'full' recipe
+# ----------------------------------------------------------------------------------------------
+def overfit_trials() -> Dict[str, Dict[str, Any]]:
+    """Each trial = the 'full' recipe with exactly one regularisation setting changed (same seed, same data,
+    same schedule), so any difference in the memorizing gap / validation loss can be blamed on that one change."""
+    return {
+        "ovf1_droppath0.3": {"base": "full", "model": {"drop_path": 0.3}, "train": {},
+                             "change": "stochastic depth 0.1 -> 0.3 (randomly skip whole blocks while training)"},
+        "ovf2_wd0.1": {"base": "full", "model": {}, "train": {"weight_decay": 0.1},
+                       "change": "weight decay 0.05 -> 0.1 (pull all weights harder towards zero)"},
+        "ovf3_autoaug": {"base": "full", "model": {}, "train": {"aug_tier": "auto"},
+                         "change": "augmentation tier 'strong' -> 'auto' (TrivialAugmentWide, bird box follows)"},
+        "ovf4_dropout0.1": {"base": "full", "model": {"drop": 0.1, "attn_drop": 0.1}, "train": {},
+                            "change": "dropout 0 -> 0.1 in the MLP/projections and on the attention weights"},
+    }
+
+
+def get_trial(name: str, seed: int = 42) -> ExperimentConfig:
+    spec = overfit_trials()[name]
+    return get_experiment(spec["base"], seed, spec["model"], spec["train"], run_name=name)

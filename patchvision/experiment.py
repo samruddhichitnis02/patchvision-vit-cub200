@@ -135,3 +135,81 @@ def load_for_inference(run_dir, device: Optional[torch.device] = None):
     model = build_model(exp.model).to(device)
     model.load_state_dict(ck["state"])
     return model.eval(), exp
+
+
+# ----------------------------------------------------------------------------------------------
+# Comparing runs (used by overfitting_trials.ipynb)
+# ----------------------------------------------------------------------------------------------
+def _nearest_clean_gap(h: pd.DataFrame, epoch: int):
+    """clean-train accuracy and (clean - val) gap at the clean evaluation closest to `epoch`."""
+    c = h.dropna(subset=["clean_acc1"])
+    if c.empty:
+        return float("nan"), float("nan")
+    r = c.iloc[(c["epoch"] - epoch).abs().argsort()[:1]].iloc[0]
+    return float(r["clean_acc1"]), float(r["clean_acc1"] - r["val_acc1"])
+
+
+def compare_runs(paths: PathsConfig, names: Sequence[str], seed: int = 42, out_name: str = "overfitting_trials",
+                 smooth: int = 10, show: bool = False) -> pd.DataFrame:
+    """Table + plots comparing several finished (or running) runs, using VALIDATION numbers to judge.
+
+    Columns (all from history.csv; test numbers are listed for the record but are NOT used to rank):
+      best_val_acc1 / smoothed_val_acc1 (best `smooth`-epoch rolling mean, robust to the noisy 600-photo val set)
+      min_val_loss  (the most sensitive overfitting signal: it turns upwards when memorizing starts)
+      gap_at_best   (clean-train accuracy minus validation accuracy near the best epoch)
+    Writes results/<out_name>/comparison.{csv,md,png}.
+    """
+    import matplotlib.pyplot as plt
+    rows, hist = [], {}
+    for n in names:
+        rd = paths.results / n / f"seed{seed}"
+        if not (rd / "history.csv").exists():
+            continue
+        h = pd.read_csv(rd / "history.csv")
+        hist[n] = h
+        best = h.loc[h["val_acc1"].idxmax()]
+        lo = h.loc[h["val_loss"].idxmin()]
+        clean_at_best, gap_at_best = _nearest_clean_gap(h, int(best["epoch"]))
+        done = (rd / "test_metrics.json").exists()
+        row = json.loads((rd / "test_metrics.json").read_text())["row"] if done else {}
+        rows.append({
+            "run": n, "finished": done, "epochs_run": int(h["epoch"].max()),
+            "best_val_acc1": float(best["val_acc1"]), "best_val_epoch": int(best["epoch"]),
+            "smoothed_val_acc1": float(h["val_acc1"].rolling(smooth, min_periods=smooth).mean().max()),
+            "min_val_loss": float(lo["val_loss"]), "min_val_loss_epoch": int(lo["epoch"]),
+            "clean_train_acc_at_best": clean_at_best, "gap_at_best": gap_at_best,
+            "val_attn_in_box": float(h["val_attn_in_box"].iloc[-1]),
+            "train_min": row.get("train_time_s", float("nan")) / 60, "sec_per_epoch": row.get("sec_per_epoch", float("nan")),
+            "test_acc1 (record only)": row.get("test_acc1", float("nan")), "test_ece (record only)": row.get("test_ece", float("nan")),
+        })
+    table = pd.DataFrame(rows)
+    out = paths.results / out_name
+    out.mkdir(parents=True, exist_ok=True)
+    if table.empty:
+        return table
+    table.to_csv(out / "comparison.csv", index=False)
+    cols = list(table.columns)
+    fmt = lambda v: f"{v:.2f}" if isinstance(v, float) else str(v)
+    md = ["| " + " | ".join(cols) + " |", "|" + "|".join(["---"] * len(cols)) + "|"]
+    md += ["| " + " | ".join(fmt(r[c]) for c in cols) + " |" for _, r in table.iterrows()]
+    (out / "comparison.md").write_text("\n".join(md), encoding="utf-8")
+
+    fig, ax = plt.subplots(1, 3, figsize=(19, 5))
+    for n, h in hist.items():
+        ax[0].plot(h["epoch"], h["val_acc1"].rolling(5, min_periods=1).mean(), label=n)
+        ax[1].plot(h["epoch"], h["val_loss"], label=n)
+        c = h.dropna(subset=["clean_acc1"])
+        ax[2].plot(c["epoch"], c["clean_acc1"] - c["val_acc1"], "o-", ms=3, label=n)
+    ax[0].set_title("validation top-1 (%) (5-epoch smoothing)")
+    ax[1].set_title("validation loss (lower is better)")
+    ax[2].set_title("memorizing gap: clean-train minus validation (points)")
+    for a in ax:
+        a.set_xlabel("epoch")
+        a.grid(alpha=0.3)
+    ax[0].legend(fontsize=8)
+    fig.tight_layout()
+    fig.savefig(out / "comparison.png", dpi=120)
+    if show:
+        plt.show()
+    plt.close(fig)
+    return table
