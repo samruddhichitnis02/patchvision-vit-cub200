@@ -1,0 +1,14 @@
+{
+  "base": {
+    "attn_mismatch_last_block": 0.07699644193053246,
+    "attn_mismatch_mean_blocks": 0.05505049042403698,
+    "same_prediction_when_flipped": 0.77734375,
+    "n_images": 256
+  },
+  "full": {
+    "attn_mismatch_last_block": 0.0029646516777575016,
+    "attn_mismatch_mean_blocks": 0.0021469650673680007,
+    "same_prediction_when_flipped": 0.9296875,
+    "n_images": 256
+  }
+}
