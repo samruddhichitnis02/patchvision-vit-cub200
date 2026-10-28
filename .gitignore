@@ -1,0 +1,13 @@
+# dataset (large, downloadable)
+CUB_200_2011/
+CUB_200_2011.tgz
+smoke_data/
+
+# python / notebook caches
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# large training state (resumable checkpoints, periodic weights)
+results/**/last.pt
+results/**/weights/
