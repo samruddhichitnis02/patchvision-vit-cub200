@@ -19,10 +19,11 @@ This page explains everything we have done so far, with pictures and animations 
 8. [Our four tricks against memorizing](#8-our-four-tricks-against-memorizing)
 9. [How we train](#9-how-we-train)
 10. [Results so far](#10-results-so-far)
-11. [What we learned, and what we do NOT know yet](#11-what-we-learned-and-what-we-do-not-know-yet)
-12. [What comes next](#12-what-comes-next)
-13. [Where everything is, and how to re-run it](#13-where-everything-is-and-how-to-re-run-it)
-14. [References](#14-references)
+11. [Overfitting trials: one change at a time](#11-overfitting-trials-one-change-at-a-time)
+12. [What we learned, and what we do NOT know yet](#12-what-we-learned-and-what-we-do-not-know-yet)
+13. [What comes next](#13-what-comes-next)
+14. [Where everything is, and how to re-run it](#14-where-everything-is-and-how-to-re-run-it)
+15. [References](#15-references)
 
 ---
 
@@ -31,7 +32,7 @@ This page explains everything we have done so far, with pictures and animations 
 * **Task.** Look at a photo of a bird and say which of **200 species** it is.
 * **Catch.** We train the model **from scratch** (no pre-trained weights), and the dataset is tiny: **5,394 training photos, about 27 per species**. Vision Transformers (ViTs) normally need huge datasets, so on small data they tend to *memorize* instead of *learn*.
 * **What we built.** A small ViT called **PatchVision-X** (4.3 million numbers to learn). It mixes ideas from two research papers and adds four tricks of our own that discourage memorizing.
-* **What we ran so far.** Two training runs with the same data and settings: `base` (our extra ideas switched **off**) and `full` (everything **on**).
+* **What we ran so far.** Six training runs on the same data: `base` (our extra ideas switched **off**), `full` (everything **on**), and four follow-up trials that each change **one** setting of `full` to fight memorizing ([section 11](#11-overfitting-trials-one-change-at-a-time)).
 * **Result.** Tested on **5,794 photos the model had never seen**:
 
 ![Test results of base and full](docs/figures/results_bars.png)
@@ -42,7 +43,7 @@ This page explains everything we have done so far, with pictures and animations 
 | Right answer in the best 5 guesses (top-5) | 65.1 % | **73.6 %** |
 | Where the model looks | no better than chance | **mostly at the bird** |
 
-* **The honest part.** Both models still **memorize the training photos** (about 100 % right on photos they trained on, but only 40-48 % on new photos). Fixing that is our next step. Everything above is **one run each (one random seed)**, so the exact gap is not yet certain.
+* **The honest part.** Both models still **memorize the training photos** (about 100 % right on photos they trained on, but only 40-48 % on new photos). Our four cheap fixes ([section 11](#11-overfitting-trials-one-change-at-a-time)) raised the accuracy on new photos by about **2 to 3 points** (measured on the validation photos), from 48.4 % to 50.1-51.3 %, but they **did not close the memorizing gap**: it is still about 48 points. Everything here is **one run each (one random seed)**, so the exact numbers are not certain yet.
 
 <p align="center">
   <img src="docs/animations/training_progress.gif" width="640" alt="Animated training progress of base and full">
@@ -325,7 +326,7 @@ Birds often fill only a small part of the frame, so many training photos show mo
 
 Strong augmentation, mixup/CutMix, label smoothing (0.1), **stochastic depth** (randomly skipping whole blocks while training, up to 10 %), **weight decay** 0.05 (a gentle pull of all numbers towards zero), gradient clipping, early stopping and best-epoch selection.
 
-> **Important.** We have **not yet measured how much each of the four tricks is worth by itself**. The comparison we have switches all of them (plus the two architecture additions) on at once. See [what comes next](#12-what-comes-next).
+> **Important.** We have **not yet measured how much each of the four tricks is worth by itself**. The comparison we have switches all of them (plus the two architecture additions) on at once. See [what comes next](#13-what-comes-next).
 
 ---
 
@@ -434,15 +435,109 @@ How the looking changed during training of the `full` model (validation photos, 
 
 ---
 
-## 11. What we learned, and what we do NOT know yet
+## 11. Overfitting trials: one change at a time
+
+### Why we ran them
+
+Both `base` and `full` memorize the training photos: about 98 to 100 % right on photos they trained on, but only 40 to 48 % on new photos. We wanted to know whether well-known, cheap fixes reduce that. The scientific way is to **change one thing at a time**, like testing four cake recipes that differ by one ingredient each.
+
+### The design
+
+Each trial is the `full` recipe (same data, same splits, same seed 42, same 300-epoch schedule, same early stopping after 60 epochs without improvement) with **exactly one setting changed**. The notebook checks this automatically from the saved settings.
+
+| Trial (= results folder) | The one change | In simple words |
+|---|---|---|
+| `ovf1_droppath0.3` | stochastic depth 0.1 → 0.3 | While training, skip whole blocks at random, more often (up to 30 % for the last block). The model cannot rely on any single block. |
+| `ovf2_wd0.1` | weight decay 0.05 → 0.1 | A stronger pull of all numbers towards zero, so they cannot grow large just to memorize. |
+| `ovf3_autoaug` | augmentation `strong` → `auto` | Random photo changes chosen automatically (shear, rotate, colour, contrast ...). The bird box follows the geometric ones. |
+| `ovf4_dropout0.1` | dropout 0 → 0.1 | Randomly switch off 10 % of the numbers inside the MLP and of the attention weights while training. |
+
+### The rule was written before the results
+
+At the top of `overfitting_trials.ipynb` we fixed how to judge, before any trial had finished. Only **validation** numbers decide. A trial counts as an improvement over `full` if both hold:
+
+1. its lowest validation loss is lower than `full`'s by at least 0.03, and
+2. its smoothed validation accuracy (best 10-epoch average) is not more than 1 point below `full`'s.
+
+The test photos are evaluated automatically at the end of every run, and are shown below "for the record", but they were **not** used to choose anything.
+
+### Results (validation decides)
+
+| Run | Epochs run | Lowest validation loss | Validation top-1 (smoothed) | Memorizing gap (points) | Passes the rule? | Time |
+|---|---|---|---|---|---|---|
+| `full` (reference) | 213 | 2.32 | 48.4 % | 49.8 | – | 71 min |
+| `ovf1_droppath0.3` | **300** | **2.14** | **51.3 %** | 48.3 | yes | 97 min |
+| `ovf2_wd0.1` | 208 | 2.26 | 50.1 % | 49.2 | yes | 69 min |
+| `ovf3_autoaug` | 239 | **2.14** | 50.6 % | 48.5 | yes | 79 min |
+| `ovf4_dropout0.1` | 253 | 2.23 | 50.8 % | 48.8 | yes | 86 min |
+
+![Summary of the four trials](docs/figures/trials_summary.png)
+
+*The y-axes do not start at zero, so small differences look big. Look at the numbers.*
+
+<p align="center">
+  <img src="docs/animations/trials_race.gif" width="640" alt="Animated race of the validation accuracy of the five runs">
+</p>
+
+*Validation accuracy of the five runs while they train. A run stops when early stopping triggers (`full`, `wd0.1`, `autoaug` and `dropout0.1` did; `droppath0.3` ran all 300 epochs).*
+
+![Curves of the four trials](docs/figures/trials_curves.png)
+
+*Top-left: accuracy on new photos. Top-right: validation loss. Bottom-left: accuracy on the training photos (all end at about 100 %). Bottom-right: the memorizing gap, which stays near 50 points for every run.*
+
+### Test numbers (for the record only)
+
+| Run | Top-1 | Top-5 | Macro-F1 | Calibration error (ECE, lower is better) |
+|---|---|---|---|---|
+| `full` | 47.39 % | 73.59 % | 47.05 | 5.95 % |
+| `ovf1_droppath0.3` | 52.07 % | 75.15 % | 51.68 | 10.77 % |
+| `ovf2_wd0.1` | 50.03 % | 75.15 % | 49.57 | 7.38 % |
+| `ovf3_autoaug` | 50.26 % | 75.79 % | 50.07 | 8.09 % |
+| `ovf4_dropout0.1` | 48.08 % | 73.16 % | 47.62 | 5.70 % |
+
+We have now seen these numbers, so from here on every decision must rest on the validation photos only.
+
+### How to read this honestly
+
+1. **All four fixes passed the rule, and all four helped a little**: lower validation loss and 1.7 to 3.0 points higher validation accuracy. But the rule turned out to be lenient (everything passed), so it does not rank the four.
+2. **The memorizing gap barely moved.** It went from 49.8 points to 48.3 to 49.2. Every model still reaches 99.7 to 100 % on the clean training photos. The fixes make the model somewhat better on new photos; they do **not** stop it from memorizing.
+3. **The differences are about as big as the noise.** The validation set has only 600 photos, and one standard error of an accuracy near 50 % is about 2 points. The same photos are used for every run, which makes the comparison somewhat less noisy, but we have run **one seed each**, so we cannot say which fix is truly best.
+4. **`ovf1_droppath0.3` is not a perfectly fair comparison.** It was the only trial that ran all 300 epochs (early stopping never triggered; its best epoch was 246). The others stopped between epochs 208 and 253, before the learning rate had finished falling. Part of its lead may come from the longer schedule.
+5. **Calibration got worse in three of four trials** (confidence numbers less honest). Dropout 0.1 stayed about the same.
+6. **Attention on the bird did not change** (the share inside the bird box stayed between 0.62 and 0.67 in every run).
+
+### What this means
+
+Cheap regularisation helps a little, but it is not the answer to memorizing on its own. Next we combine the best settings and test them, then repeat with several seeds. If the gap still stays near 50 points, the problem is structural (a 4.3-million-number model against 5,394 photos), and we should look at a smaller model or at learning from the training photos without labels.
+
+### Experiment log: every run so far
+
+| Run | What it is | Epochs | Best epoch | Time | Test top-1 (record) |
+|---|---|---|---|---|---|
+| [`base`](results/base/seed42/) | additions off | 246 | 186 | 48 min | 39.52 % |
+| [`full`](results/full/seed42/) | everything on | 213 | 153 | 71 min | 47.39 % |
+| [`ovf1_droppath0.3`](results/ovf1_droppath0.3/seed42/) | `full` + stochastic depth 0.3 | 300 | 246 | 97 min | 52.07 % |
+| [`ovf2_wd0.1`](results/ovf2_wd0.1/seed42/) | `full` + weight decay 0.1 | 208 | 148 | 69 min | 50.03 % |
+| [`ovf3_autoaug`](results/ovf3_autoaug/seed42/) | `full` + auto augmentation | 239 | 179 | 79 min | 50.26 % |
+| [`ovf4_dropout0.1`](results/ovf4_dropout0.1/seed42/) | `full` + dropout 0.1 | 253 | 193 | 86 min | 48.08 % |
+
+**Where the proof is.** The notebook [`overfitting_trials.ipynb`](overfitting_trials.ipynb) contains the recorded output of all four trials. Each run folder holds its complete step-by-step log (`train_log.txt`), `steps.csv`, `history.csv`, `config.json`, test results and plots. The side-by-side table, plot and verdict are in [`results/overfitting_trials/`](results/overfitting_trials/).
+
+---
+
+## 12. What we learned, and what we do NOT know yet
 
 **What the evidence supports**
 
 * On this data, the extra ingredients of PatchVision-X made a clear difference: about **+8 points** on top-1 and a model that looks at the bird (one seed).
 * The mirror test shows that the consistency training worked: the model is much more stable when the photo is flipped.
 * Even a small ViT can train from scratch on 5,394 photos and reach about 47 % on 200 look-alike species.
+* Simple extra regularisation (more stochastic depth, stronger augmentation, more weight decay, dropout) improved validation accuracy by about 2 to 3 points and lowered the validation loss in all four single-change trials (one seed each).
 
 **What we do NOT know yet**
+
+* **Whether the four fixes add up.** We have not yet tried them together. They could stack, or they could over-regularize.
+* **Which of the four is truly best.** The differences between them are about as large as the noise of the 600 validation photos, and `ovf1_droppath0.3` also had a longer schedule.
 
 * **Which ingredient does the work.** `full` differs from `base` in six things at once (two architecture changes and four tricks). We only know that the *combination* helps.
 * **How stable the numbers are.** One seed per model. Different seeds may differ by a point or more.
@@ -451,20 +546,22 @@ How the looking changed during training of the `full` model (validation photos, 
 
 **Weak points**
 
-* **Both models memorize the training set** (gap of about 50 and 60 points). This is the main open problem.
-* **`full` is worse calibrated** than `base`.
+* **Every model memorizes the training set** (gap of about 48 to 60 points; the four trials did not close it). This is the main open problem.
+* **`full` is worse calibrated** than `base`, and most trials are worse still (ECE up to 10.8 %).
 * **`full` is slower to train** (20 against 12 seconds per epoch) because of the mirrored copies.
-* **We have looked at the test results of both runs.** To keep the final test grade honest, every further choice should be made on the validation photos only, and the test set should be used for the final runs only.
+* **We have looked at the test results of all six runs.** To keep the final test grade honest, every further choice should be made on the validation photos only, and the test set should be used for the final runs only.
 * The GvT parts of our code follow our interpretation of an under-specified paper ([section 6](#6-the-two-papers-we-built-on)).
 
 ---
 
-## 12. What comes next
+## 13. What comes next
 
 - [x] Prepare the data: fixed splits, normalisation, augmentation levels
 - [x] Implement PatchVision-X (model, losses, trainer, logging, monitor)
 - [x] Run `full` and `base` once (seed 42)
-- [ ] **Reduce the memorizing.** Candidates (none tried yet): more stochastic depth, stronger augmentation (`auto` level), more weight decay, a larger consistency weight, a smaller model. We would judge each by the *gap* and not only by accuracy.
+- [x] **First round against memorizing:** four one-change trials (stochastic depth 0.3, weight decay 0.1, `auto` augmentation, dropout 0.1). All helped a little; the gap stayed near 50 points ([section 11](#11-overfitting-trials-one-change-at-a-time))
+- [ ] **Second round:** combine the best settings (for example stochastic depth 0.3 + `auto` augmentation, and all four together) and let each run the full 300 epochs, so schedules are comparable
+- [ ] **If the gap stays near 50 points:** try a smaller model, a larger consistency weight, or learning from the training photos without labels. We would judge each by the *gap* and not only by accuracy.
 - [ ] **Ablations:** add the ingredients one at a time (the experiments `lfe`, `multiscale`, `arch_x`, `arch_x+bbox`, `arch_x+ema`, `arch_x+cons`, `arch_x+boxcrop`, and leave-one-out versions `full-...` are already defined in the code)
 - [ ] **3 seeds** (42, 43, 44) for the final recipe and for `base`, to report mean and standard deviation
 - [ ] **Baselines:** a small CNN and a plain ViT, on identical splits
@@ -472,18 +569,20 @@ How the looking changed during training of the `full` model (validation photos, 
 
 ---
 
-## 13. Where everything is, and how to re-run it
+## 14. Where everything is, and how to re-run it
 
 ### Folder map
 
 ```
 patchvision-vit-cub200/
 ├── README.md                     <- this file
-├── training.ipynb                <- the notebook that runs and records a training run
-├── train.py                      <- the same thing from the terminal:  python train.py base 42
+├── training.ipynb                <- runs and records one experiment (full, base, ablations)
+├── overfitting_trials.ipynb      <- runs and records the four overfitting trials + comparison
+├── train.py                      <- the same from the terminal:  python train.py base 42
+│                                    (also accepts trial names, e.g.  python train.py ovf1_droppath0.3 42)
 ├── watch_training.py             <- live monitor for a running training
 ├── patchvision/                  <- all the code
-│   ├── config.py                    settings + definitions of all experiments (full, base, ablations)
+│   ├── config.py                    settings + definitions of all experiments (full, base, ablations, overfitting trials)
 │   ├── data.py                      dataset, augmentation, mixup/CutMix, data loaders
 │   ├── models.py                    the PatchVision-X architecture
 │   ├── losses.py                    cross-entropy, box-attention loss, flip-consistency loss
@@ -491,7 +590,7 @@ patchvision-vit-cub200/
 │   ├── optim.py                     optimiser and learning-rate schedule
 │   ├── metrics.py                   accuracy, F1, calibration, speed measurements
 │   ├── engine.py                    the training loop and everything it saves
-│   ├── experiment.py                running experiments, results table
+│   ├── experiment.py                running experiments, results tables, comparing runs
 │   ├── visualize.py, monitor.py     plots and the live monitor
 │   └── utils.py
 ├── DataPreprocessing_Results/    <- splits, normalisation, augmentation settings
@@ -499,6 +598,8 @@ patchvision-vit-cub200/
 ├── patchvision_advanced_preprocessing.ipynb
 ├── results/                      <- everything our runs wrote (logs, metrics, plots)
 │   ├── full/seed42/   base/seed42/
+│   ├── ovf1_droppath0.3/  ovf2_wd0.1/  ovf3_autoaug/  ovf4_dropout0.1/    (each with seed42/)
+│   ├── overfitting_trials/       comparison table + plot + verdict of the four trials
 │   └── ablation_table.md, all_runs.csv
 ├── docs/
 │   ├── make_figures.py           <- rebuilds every picture and animation on this page
@@ -516,16 +617,18 @@ Versions we used: Python 3.11, PyTorch 2.5.1 (CUDA 12.4), torchvision 0.20.1, nu
    ```
    python train.py full 42
    python train.py base 42
+   python train.py ovf1_droppath0.3 42
    ```
+   To re-run all four overfitting trials with a recorded notebook, open `overfitting_trials.ipynb` and run all cells (several hours; a finished trial is skipped and an interrupted one resumes).
 4. **Watch it live:** `python watch_training.py base 42` in a second terminal.
-5. **Compare runs:** the notebook's last results cells (or `summarize_results` in `patchvision/experiment.py`) write `results/ablation_table.md`.
+5. **Compare runs:** `summarize_results` (in `patchvision/experiment.py`, used by `training.ipynb`) writes `results/ablation_table.md`; `compare_runs` (used by `overfitting_trials.ipynb`) writes `results/overfitting_trials/comparison.*`.
 6. **Rebuild the pictures on this page:** `python docs/make_figures.py`. It reads the finished runs, including the `best_model.pt` files, which are not part of the lightweight Git history.
 
 Model weights are large, so `last.pt` and the periodic weight files are not stored in Git (see `.gitignore`).
 
 ---
 
-## 14. References
+## 15. References
 
 1. A. Dosovitskiy et al. *An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale.* ICLR 2021. The original Vision Transformer.
 2. H. Touvron et al. *Training Data-Efficient Image Transformers & Distillation through Attention* (DeiT). ICML 2021. Shows how much training recipe matters when data is limited.
