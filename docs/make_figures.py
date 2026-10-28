@@ -671,7 +671,97 @@ def part_flip():
     save(fig, "flip_consistency.png")
 
 
+# ============================================================================================
+# 6. overfitting trials (one change at a time on top of 'full')
+# ============================================================================================
+TRIAL_RUNS = ["full", "ovf1_droppath0.3", "ovf2_wd0.1", "ovf3_autoaug", "ovf4_dropout0.1"]
+TRIAL_LABEL = {"full": "full (reference)", "ovf1_droppath0.3": "drop-path 0.3", "ovf2_wd0.1": "weight decay 0.1",
+               "ovf3_autoaug": "auto augmentation", "ovf4_dropout0.1": "dropout 0.1"}
+TRIAL_COL = {"full": "#7f7f7f", "ovf1_droppath0.3": "#1f77b4", "ovf2_wd0.1": "#ff7f0e",
+             "ovf3_autoaug": "#2ca02c", "ovf4_dropout0.1": "#9467bd"}
+
+
+def _trial_hist():
+    return {n: pd.read_csv(ROOT / f"results/{n}/seed42/history.csv") for n in TRIAL_RUNS}
+
+
+def part_trials():
+    t = pd.read_csv(ROOT / "results/overfitting_trials/comparison.csv").set_index("run").loc[TRIAL_RUNS]
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.4))
+    panels = [("min_val_loss", "Lowest validation loss\n(lower is better)", "{:.2f}"),
+              ("smoothed_val_acc1", "Validation top-1 (%), best 10-epoch average\n(higher is better)", "{:.1f}"),
+              ("gap_at_best", "Memorizing gap (points)\n(clean-train minus validation)", "{:.1f}")]
+    for ax, (col, title, f) in zip(axes, panels):
+        vals = t[col].values
+        bars = ax.bar(range(len(TRIAL_RUNS)), vals, color=[TRIAL_COL[n] for n in TRIAL_RUNS])
+        lo, hi = vals.min(), vals.max()
+        pad = (hi - lo) * 0.9 + 1e-6
+        ax.set_ylim(lo - pad, hi + pad * 0.45)
+        for b, v in zip(bars, vals):
+            ax.text(b.get_x() + b.get_width() / 2, v + (hi - lo) * 0.04, f.format(v), ha="center", fontsize=10)
+        ax.axhline(t.loc["full", col], color="k", ls=":", lw=1)
+        ax.set_xticks(range(len(TRIAL_RUNS)))
+        ax.set_xticklabels([TRIAL_LABEL[n].replace(" ", "\n", 1) for n in TRIAL_RUNS], fontsize=8.5)
+        ax.set_title(title, fontsize=10.5)
+    fig.suptitle("Four one-change trials vs the reference 'full' run (seed 42). The y-axes do not start at zero: differences are small.", fontsize=11)
+    fig.tight_layout()
+    save(fig, "trials_summary.png")
+
+    hh = _trial_hist()
+    fig, axes = plt.subplots(2, 2, figsize=(13, 8.4))
+    for n in TRIAL_RUNS:
+        h, c = hh[n], hh[n].dropna(subset=["clean_acc1"])
+        kw = dict(color=TRIAL_COL[n], label=TRIAL_LABEL[n], lw=2 if n != "full" else 1.6, ls="--" if n == "full" else "-")
+        axes[0, 0].plot(h.epoch, h.val_acc1.rolling(5, min_periods=1).mean(), **kw)
+        axes[0, 1].plot(h.epoch, h.val_loss, **kw)
+        axes[1, 0].plot(c.epoch, c.clean_acc1, **kw)
+        axes[1, 1].plot(c.epoch, c.clean_acc1 - c.val_acc1, **kw)
+    axes[0, 0].set_title("Accuracy on NEW photos (validation), 5-epoch average")
+    axes[0, 1].set_title("Validation loss (lower is better)")
+    axes[1, 0].set_title("Accuracy on the TRAINING photos (clean)")
+    axes[1, 1].set_title("Memorizing gap = training minus validation (points)")
+    axes[0, 0].set_ylabel("top-1 (%)")
+    axes[1, 0].set_ylabel("top-1 (%)")
+    axes[0, 0].legend(fontsize=9, loc="lower right")
+    for a in axes.ravel():
+        a.set_xlabel("epoch")
+    fig.tight_layout()
+    save(fig, "trials_curves.png")
+
+
+def part_anim_trials():
+    hh = _trial_hist()
+    sm = {n: hh[n].val_acc1.rolling(5, min_periods=1).mean() for n in TRIAL_RUNS}
+    fig, ax = plt.subplots(figsize=(8.4, 4.4))
+    ax.set_xlim(0, 300)
+    ax.set_ylim(0, 56)
+    ax.set_xlabel("epoch")
+    ax.set_ylabel("validation top-1 (%), 5-epoch average")
+    lines = {}
+    for n in TRIAL_RUNS:
+        lines[n], = ax.plot([], [], color=TRIAL_COL[n], lw=2 if n != "full" else 1.6, ls="--" if n == "full" else "-",
+                            label=TRIAL_LABEL[n])
+    leg = ax.legend(loc="lower right", fontsize=9, title="current value", title_fontsize=9)
+    txt = ax.text(6, 52.5, "", fontsize=12, fontweight="bold")
+    frames = list(range(2, 301, 3)) + [300]
+
+    def upd(k):
+        for i, n in enumerate(TRIAL_RUNS):
+            h = hh[n]
+            m = h.epoch <= k
+            lines[n].set_data(h.epoch[m], sm[n][m])
+            if m.any():
+                leg.get_texts()[i].set_text(f"{TRIAL_LABEL[n]}: {sm[n][m].iloc[-1]:.1f}%")
+            if not m.all():                                   # this run has already stopped (early stopping)
+                leg.get_texts()[i].set_text(f"{TRIAL_LABEL[n]}: {sm[n].iloc[-1]:.1f}%  (stopped)")
+        txt.set_text(f"epoch {k}")
+        return list(lines.values())
+
+    save_gif(FuncAnimation(fig, upd, frames=frames, interval=100), "trials_race.gif", fps=12, dpi=75)
+
+
 PARTS = {
+    "trials": part_trials, "anim_trials": part_anim_trials,
     "dataset": part_dataset, "augment": part_augment, "patches": part_patches, "arch": part_arch, "scales": part_scales,
     "lr": part_lr, "curves": part_curves, "gap": part_gap, "anim_curves": part_anim_curves, "anim_gap": part_anim_gap,
     "anim_snap": part_anim_snapshots, "anim_aug": part_anim_aug, "results": part_results, "losses": part_extra_losses,
