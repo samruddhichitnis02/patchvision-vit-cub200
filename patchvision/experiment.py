@@ -1,0 +1,137 @@
+"""High-level helpers used by the notebook: dry run, run one experiment, run a suite, results table."""
+from __future__ import annotations
+
+import json
+import math
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional, Sequence
+
+import pandas as pd
+import torch
+
+from .config import ExperimentConfig, PathsConfig, ablation_suite, get_experiment
+from .data import build_loaders, load_data_info
+from .engine import Trainer
+from .losses import TrainingLoss, smooth_one_hot
+from .metrics import box_to_patch_mask, measure_efficiency
+from .models import TOKENIZER_STRIDE, build_model
+from .utils import count_parameters, get_device, seed_everything
+
+METRIC_COLS = [("test_acc1", "top-1 (%)"), ("test_acc5", "top-5 (%)"), ("test_macro_f1", "macro-F1 (%)"),
+               ("test_ece", "ECE (%)"), ("test_attn_in_box", "attn in box"),
+               ("overfit_gap_clean_minus_val", "train-val gap (pts)"), ("best_epoch", "best epoch"),
+               ("params_M", "params (M)"), ("GFLOPs", "GFLOPs"), ("latency_ms_bs1", "latency bs1 (ms)"),
+               ("sec_per_epoch", "s / epoch")]
+
+
+def dry_run(exp: ExperimentConfig, paths: PathsConfig, device: Optional[torch.device] = None) -> dict:
+    """Builds the model + loss and pushes ONE real batch through forward/backward (single view and the
+    flip-consistency two-view path). Checks shapes, loss at initialisation (~ln(classes)) and gradient flow."""
+    device = device or get_device()
+    tc, mc = exp.train, exp.model
+    info = load_data_info(paths)
+    mc.img_size, mc.num_classes = info.img_size, info.num_classes
+    grid = mc.img_size // TOKENIZER_STRIDE
+    seed_everything(exp.seed)
+    _, dl = build_loaders(info, tc, exp.seed, num_workers=0, pin_memory=False)
+    model = build_model(mc).to(device)
+    total_p = count_parameters(model)[0]
+    eff = measure_efficiency(model, device, info.img_size, batch_sizes=(1,), iters=3)
+    print(f"{exp.name}: {total_p / 1e6:.2f} M parameters | GFLOPs {eff['GFLOPs_per_image']:.2f} | "
+          f"latency bs1 {eff['latency_ms_bs1']:.1f} ms")
+    x, m, y, _ = next(iter(dl["train"]))
+    x, m, y = x.to(device), m.to(device), y.to(device)
+    print(f"batch: images {tuple(x.shape)} | mask max {m.max().item():.2f} (must be 1.0 when boxes are loaded) | "
+          f"x mean/std {x.mean().item():.2f}/{x.std().item():.2f}")
+    crit = TrainingLoss(tc, grid)
+    soft = smooth_one_hot(y, info.num_classes, tc.label_smoothing)
+    report = {"params_M": total_p / 1e6, **eff}
+    for two in sorted({False, tc.use_consistency}):
+        model.train()
+        model.zero_grad(set_to_none=True)
+        x_in, m_in = (torch.cat([x, x.flip(-1)]), torch.cat([m, m.flip(-1)])) if two else (x, m)
+        logits, aux = model(x_in)
+        out = crit(logits.float(), soft, aux, box_to_patch_mask(m_in, grid), two_views=two)
+        out["total"].backward()
+        bad = [n for n, p in model.named_parameters() if p.grad is None or not torch.isfinite(p.grad).all()]
+        print(f"[{'2 views (flip)' if two else '1 view'}] logits {tuple(logits.shape)} | attention maps "
+              f"{len(aux['attn_maps'])} x {tuple(aux['attn_maps'][0].shape)} | loss {out['total'].item():.4f} "
+              f"(ce {out['ce'].item():.4f}, chance ln({info.num_classes}) = {math.log(info.num_classes):.4f}, "
+              f"bbox {out['attn'].item():.4f}, cons {out['cons_logit'].item():.4f}/{out['cons_attn'].item():.4f}) "
+              f"| params without finite grad: {bad if bad else 'none [OK]'}")
+        assert not bad, f"parameters without a finite gradient: {bad}"
+        report[f"loss_two_views={two}"] = out["total"].item()
+    return report
+
+
+def run_experiment(exp: ExperimentConfig, paths: PathsConfig, **trainer_kwargs) -> dict:
+    return Trainer(exp, paths, **trainer_kwargs).run()
+
+
+def run_suite(names: Sequence[str], seeds: Sequence[int], paths: PathsConfig,
+              model_overrides: Optional[dict] = None, train_overrides: Optional[dict] = None,
+              **trainer_kwargs) -> pd.DataFrame:
+    """Runs every (experiment, seed) pair; after each run the aggregated table in results/ is refreshed.
+    Finished runs are skipped automatically (resume=True), so the call can simply be repeated after an interruption."""
+    rows = []
+    for name in names:
+        for seed in seeds:
+            print(f"\n######################## {name} | seed {seed} ########################")
+            exp = get_experiment(name, seed, model_overrides, train_overrides)
+            rows.append(run_experiment(exp, paths, **trainer_kwargs))
+            summarize_results(paths)
+    return pd.DataFrame(rows)
+
+
+def collect_runs(paths: PathsConfig) -> pd.DataFrame:
+    rows = []
+    for f in sorted(paths.results.glob("*/seed*/test_metrics.json")):
+        rows.append(json.loads(f.read_text())["row"])
+    return pd.DataFrame(rows)
+
+
+def summarize_results(paths: PathsConfig, names: Optional[Iterable[str]] = None) -> pd.DataFrame:
+    """Writes results/all_runs.csv, results/ablation_table.csv and results/ablation_table.md
+    (mean +- std over seeds, one row per experiment, ordered like the ablation suite)."""
+    runs = collect_runs(paths)
+    if runs.empty:
+        print("no finished runs yet")
+        return runs
+    paths.results.mkdir(parents=True, exist_ok=True)
+    runs.to_csv(paths.results / "all_runs.csv", index=False)
+    order = {n: i for i, n in enumerate(ablation_suite())}
+    if names is not None:
+        runs = runs[runs["experiment"].isin(list(names))]
+    rows = []
+    base_acc = runs.loc[runs["experiment"] == "base", "test_acc1"].mean() if (runs["experiment"] == "base").any() else None
+    for name, g in runs.groupby("experiment"):
+        r = {"experiment": name, "seeds": len(g)}
+        for col, label in METRIC_COLS:
+            if col in g:
+                mu, sd = g[col].mean(), (g[col].std(ddof=1) if len(g) > 1 else 0.0)
+                r[label] = f"{mu:.2f} +/- {sd:.2f}" if len(g) > 1 else f"{mu:.2f}"
+                r[label + " (mean)"] = mu
+        if base_acc is not None:
+            r["delta top-1 vs base"] = f"{g['test_acc1'].mean() - base_acc:+.2f}"
+        rows.append(r)
+    table = pd.DataFrame(rows)
+    table["_o"] = table["experiment"].map(lambda n: order.get(n, 999))
+    table = table.sort_values("_o").drop(columns="_o").reset_index(drop=True)
+    table.to_csv(paths.results / "ablation_table.csv", index=False)
+    show_cols = ["experiment", "seeds"] + [l for _, l in METRIC_COLS if l in table] + \
+                (["delta top-1 vs base"] if "delta top-1 vs base" in table else [])
+    md = ["| " + " | ".join(show_cols) + " |", "|" + "|".join(["---"] * len(show_cols)) + "|"]
+    md += ["| " + " | ".join(str(r[c]) for c in show_cols) + " |" for _, r in table.iterrows()]
+    (paths.results / "ablation_table.md").write_text("\n".join(md), encoding="utf-8")
+    return table[show_cols]
+
+
+def load_for_inference(run_dir, device: Optional[torch.device] = None):
+    """Loads the best model of a finished run (EMA weights when the run used EMA) in eval mode.
+    Use this later to compare PatchVision-X with the CNN / ViT baselines on identical data."""
+    device = device or get_device()
+    ck = torch.load(Path(run_dir) / "best_model.pt", map_location=device, weights_only=False)
+    exp = ExperimentConfig.from_dict(ck["exp"])
+    model = build_model(exp.model).to(device)
+    model.load_state_dict(ck["state"])
+    return model.eval(), exp
