@@ -4,7 +4,7 @@
 
 **The question.** With only about 27 training photos per species, can a Vision Transformer learned from scratch keep up with a CNN? We built a small hybrid Vision Transformer (**PatchVision-X**), a matched **CNN baseline**, trained both under the same recipe, and compared them on the same 5,794 unseen test photos.
 
-> **Jump to:** [Result in one minute](#1-the-result-in-one-minute) · [The two models](#3-the-two-models-side-by-side) · [Results](#4-results) · [Winner and why](#5-the-winner-and-why) · [E4 study](#7-e4-the-regularization-study-running) · [What is left](#9-what-is-left-from-the-proposal) · [Reproduce](#10-how-to-reproduce)
+> **Jump to:** [Result in one minute](#1-the-result-in-one-minute) · [The two models](#3-the-two-models-side-by-side) · [Results](#4-results) · [Winner and why](#5-the-winner-and-why) · [E4 study](#7-e4-the-regularization-study) · [Limits](#8-limits-of-this-study) · [Reproduce](#9-how-to-reproduce)
 
 ---
 
@@ -25,6 +25,8 @@
 
 One seed (42), 5,794 test photos, sampling noise about ±1.3 points.
 
+With the regularization recipe found in E4 (tuned for the ViT only, [section 7](#7-e4-the-regularization-study)), PatchVision-X reaches **53.00 % top-1 / 78.10 % top-5**. The CNNs have not had a comparable tuning pass yet.
+
 </td>
 <td>
 
@@ -33,6 +35,7 @@ One seed (42), 5,794 test photos, sampling noise about ±1.3 points.
 1. PatchVision-X beats the same-size CNN by **3.8 points** and the 2.6× larger CNN by **1.5 points**. Both gaps are statistically significant on the test photos (paired test, [section 4.5](#45-is-the-lead-real-paired-significance-test)).
 2. The plain ViT (`base`) is the **worst** of the four. A transformer without the extras really does lose to CNNs on this little data, which is the worry in the project proposal.
 3. **Every** model memorizes the training photos (about 100 % right on them, 40 to 48 % on new photos). The gap is about 50 points for all of them.
+4. **Regularization tuning moves the ViT furthest** (E4): combining stochastic depth 0.3 with `auto` augmentation lifts PatchVision-X from 47.4 % to **53.0 %** and shrinks the memorizing gap to 46.8 points. Only the ViT was tuned, so this is not a like-for-like comparison with the CNNs.
 
 </td>
 </tr>
@@ -52,9 +55,9 @@ flowchart LR
     B --> C["ViT: 4 one-change<br/>regularization trials"]
     C --> D["CNN baselines<br/>small 4.2 M and large 11.3 M"]
     D --> E["Comparison<br/>ViT vs CNN<br/>(this page)"]
-    E --> F["E4: combined<br/>regularization<br/>(running)"]
+    E --> F["E4: combined<br/>regularization<br/>(done)"]
     F --> G["Next: 3 seeds,<br/>depth and patch-size,<br/>report"]
-    style F fill:#fff2cc,stroke:#d4a017
+    style F fill:#d5e8d4,stroke:#2ca02c
     style G fill:#eeeeee,stroke:#999999,stroke-dasharray: 5 5
 ```
 
@@ -65,7 +68,7 @@ flowchart LR
 | 3 | Four **one-change** regularization trials on top of `full` | [`ViT_PatchVisionX/`](ViT_PatchVisionX) |
 | 4 | Built two **CNN baselines** from scratch, trained with the same recipe | [`CNN_Baseline/`](CNN_Baseline) |
 | 5 | Compared everything: accuracy, calibration, cost, per species, significance | this page, [`assets/`](assets) |
-| 6 | **E4**: combine the regularization settings that helped | running, [section 7](#7-e4-the-regularization-study-running) |
+| 6 | **E4**: combine the regularization settings that helped | [`ViT_PatchVisionX/`](ViT_PatchVisionX), [section 7](#7-e4-the-regularization-study) |
 
 ### The data (shared by both models)
 
@@ -225,7 +228,7 @@ Both models are tested on the very same photos, so we can ask: on the photos whe
 
 PatchVision-X is right and both CNNs are wrong on **493** test photos; both CNNs are right and PatchVision-X is wrong on **349**.
 
-> **What this does and does not show.** It shows the lead is not caused by which test photos happened to be drawn. It does **not** show the lead survives a different random seed; that needs the three-seed runs ([section 9](#9-what-is-left-from-the-proposal)).
+> **What this does and does not show.** It shows the lead is not caused by which test photos happened to be drawn. It does **not** show the lead survives a different random seed; that needs the three-seed runs, which are not done yet ([section 8](#8-limits-of-this-study)).
 
 ### 4.6 Species by species
 
@@ -318,6 +321,8 @@ More figures: [`ViT_PatchVisionX/README.md`](ViT_PatchVisionX/README.md) and [`C
 
 **Bottom line.** If accuracy is the goal and a custom training recipe is acceptable, use **PatchVision-X**. If you need a quick, simple baseline with no special annotations, a **CNN** gets within 2 to 4 points.
 
+> **After E4.** With the tuned recipe, PatchVision-X goes up to 53.00 % top-1 ([section 7](#7-e4-the-regularization-study)), +7.2 points over CNN large. That gap compares a *tuned* ViT with *untuned* CNNs, so the like-for-like numbers above remain the headline. Running the same tuning on the CNN is the next step.
+
 ---
 
 ## 6. The regularization trials (ViT, one change at a time)
@@ -334,22 +339,68 @@ To fight memorizing, four cheap fixes were each applied alone on top of `full` (
 
 ![Trials race](ViT_PatchVisionX/docs/animations/trials_race.gif)
 
-**Reading it honestly:** all four lowered validation loss and raised validation accuracy by 2 to 3 points, but **none closed the memorizing gap** (still about 48 to 50 points), and calibration got worse in three of four. The validation set has only 600 photos, so the four are within noise of each other. `ovf1` is not a perfectly fair comparison: it was the only one that ran all 300 epochs.
+**Reading it honestly:** all four lowered validation loss and raised validation accuracy by 2 to 3 points, but **none closed the memorizing gap** (still about 48 to 50 points), and calibration got worse in three of four. The validation set has only 600 photos, so the four are within noise of each other. `ovf1` is not a perfectly fair comparison: it was the only one that ran all 300 epochs. Combining the settings is tested in [section 7](#7-e4-the-regularization-study).
 
 ---
 
-## 7. E4: the regularization study (running)
+## 7. E4: the regularization study
 
-This is experiment **E4** from the proposal: *which training choices help a small-data model most?* The four one-change trials above answer "does each help alone". E4 asks the next question: **do they add up?**
+This is experiment **E4** from the proposal: *which training choices help a small-data model most?* The four one-change trials in [section 6](#6-the-regularization-trials-vit-one-change-at-a-time) answered "does each help alone". E4 asks the next question: **do they add up?**
 
-| Run | What is combined | Status |
-|---|---|---|
-| `ovf5_dp0.3_autoaug` | stochastic depth 0.3 + `auto` augmentation (the two best single changes) | **running** |
-| `ovf6_all_four` | stochastic depth 0.3 + weight decay 0.1 + `auto` augmentation + dropout 0.1 | **running** |
+| Run | What is combined |
+|---|---|
+| `ovf5_dp0.3_autoaug` | stochastic depth 0.3 + `auto` augmentation (the two best single changes) |
+| `ovf6_all_four` | stochastic depth 0.3 + weight decay 0.1 + `auto` augmentation + dropout 0.1 |
 
-Both use the full 300-epoch schedule (early stopping off) so they are comparable with `ovf1`, and the best epoch is again chosen on validation only. Only the ViT is being tuned here; the CNN has had no regularization study ([section 8](#8-limits-of-this-study)).
+Both ran the full 300-epoch schedule (early stopping off), so they are comparable with `ovf1`, which also ran all 300. The best epoch is chosen on **validation** only; test numbers are shown for the record.
 
-**Results:** not available yet. This section will be filled in with the table, the E4 figure and the race animation when both runs finish (`python assets/make_assets.py e4 e4race` generates them from the saved run files).
+### Results
+
+| Run | Epochs run | Best epoch | Lowest val loss | Val top-1, smoothed | Gap (pts) | Test top-1 | Test top-5 | Test macro-F1 | Test ECE |
+|---|---|---|---|---|---|---|---|---|---|
+| `full` (reference) | 213 | 153 | 2.32 | 48.4 % | 49.8 | 47.39 % | 73.59 % | 47.05 % | 5.95 % |
+| drop-path 0.3 | 300 | 246 | 2.14 | 51.4 % | 48.3 | 52.07 % | 75.15 % | 51.68 % | 10.77 % |
+| weight decay 0.1 | 208 | 148 | 2.26 | 50.1 % | 49.2 | 50.03 % | 75.15 % | 49.57 % | 7.38 % |
+| auto-augment | 239 | 179 | 2.14 | 50.6 % | 48.5 | 50.26 % | 75.79 % | 50.07 % | 8.09 % |
+| dropout 0.1 | 253 | 193 | 2.23 | 50.8 % | 48.8 | 48.08 % | 73.16 % | 47.62 % | 5.70 % |
+| **E4: drop-path 0.3 + auto-aug** | 300 | 252 | 2.05 | **53.1 %** | 46.8 | **53.00 %** | 78.10 % | 52.74 % | 10.45 % |
+| **E4: all four together** | 300 | 258 | **2.02** | 52.9 % | **46.7** | 52.40 % | **78.22 %** | 52.26 % | 9.19 % |
+
+![E4 regularization study](assets/figures/11_e4_regularization.png)
+
+![E4 race](assets/animations/e4_regularization_race.gif)
+
+*The race: validation accuracy while training for all seven runs. The two E4 runs (red and brown) finish on top.*
+
+### Is the improvement real? Paired test on the same test photos
+
+| Comparison (A vs B) | A minus B, top-1 points | Photos only A gets right | Photos only B gets right | p-value | Significant at 5 %? |
+|---|---|---|---|---|---|
+| E4 drop-path 0.3 + auto-aug vs `full` | +5.63 | 658 | 332 | < 0.0001 | yes |
+| E4 drop-path 0.3 + auto-aug vs drop-path 0.3 alone | +0.97 | 481 | 425 | 0.0676 | no |
+| E4 all four vs `full` | +5.06 | 606 | 313 | < 0.0001 | yes |
+| E4 all four vs drop-path 0.3 alone | +0.40 | 437 | 414 | 0.4508 | no |
+| E4 drop-path 0.3 + auto-aug vs E4 all four | +0.57 | 396 | 363 | 0.2454 | no |
+
+### What E4 shows
+
+1. **Regularization helps a lot, and the combination helps a little more.** Against the original `full` recipe the gain is +5.1 to +5.6 test points (significant). Against the best single change (drop-path 0.3) the gain is only +0.4 to +1.0 points, which is **not** statistically significant. On validation the ordering is the same: smoothed top-1 of 53.1 % and 52.9 % against 51.4 % and 48.4 %, and validation loss of 2.05 and 2.02 against 2.14 and 2.32.
+2. **The two combinations are tied.** Adding weight decay and dropout to drop-path plus auto-augmentation bought nothing measurable (p = 0.25). By the project's rule (best smoothed validation accuracy), **`ovf5` (drop-path 0.3 + auto-augmentation) is the winner**, chosen at epoch 252; `ovf6` has the lowest validation loss but the difference is within noise.
+3. **The clearest gain is in top-5:** 78.1 % and 78.2 % against 73.6 % for `full` (+4.5 points).
+4. **The memorizing gap moved, but did not close.** It fell from 49.8 points (`full`) and 48.3 (best single change) to 46.7 to 46.8. This is the first measurable movement, but the model still gets about 100 % right on training photos and 53 % on new ones.
+5. **There is a price: calibration.** Confidence became less honest (ECE 10.5 % and 9.2 % against 6.0 % for `full`), as with most of the single changes. Where the model looks is unchanged (attention inside the bird box 0.66).
+6. **Neither run stopped early.** The best epochs (252 and 258) are late in the schedule, which is why early stopping would have saved little here.
+
+### What this means for the ViT-vs-CNN comparison
+
+With its tuned recipe, PatchVision-X reaches **53.00 % top-1** (E4 winner), which is **+7.18 points over CNN large** and **+9.39 over CNN small** (both p < 0.0001). But this must not be read as "the architecture is 7 points better":
+
+- the CNNs received **no** regularization search, and PatchVision-X has now had six runs of tuning;
+- PatchVision-X still has the extra training signals the CNN lacks (bird boxes, flip-consistency).
+
+The fair headline comparison is still the one in [section 1](#1-the-result-in-one-minute): both models under the same, untuned recipe (47.4 % vs 43.7 % and 45.9 %). The natural next experiment is the same regularization pass for the CNN (stronger augmentation, drop-path or stochastic depth, more weight decay), to see whether it closes the gap.
+
+> **Note on hardware.** The two E4 runs were trained on the RTX 5090 with PyTorch 2.11, while `full` and the four one-change trials used an RTX 4090 with PyTorch 2.5.1. We do not expect an accuracy effect, but we cannot rule out small differences. Their training times are not reported because the two runs shared the GPU.
 
 ---
 
@@ -357,7 +408,7 @@ Both use the full 300-epoch schedule (early stopping off) so they are comparable
 
 - **One seed.** Every number is seed 42. Differences of a few points could move with other seeds. Three seeds are required by the proposal and not done yet.
 - **Unequal help.** PatchVision-X uses bird boxes and flip-consistency in training; the CNN does not. The ViT has had a regularization search ([sections 6 and 7](#6-the-regularization-trials-vit-one-change-at-a-time)); the CNN has had none and uses the ViT's learning rate and weight decay without tuning.
-- **Different hardware.** ViT runs: RTX 4090, PyTorch 2.5.1. CNN runs: RTX 5090, PyTorch 2.11. Accuracy is not affected by this in any way we expect, but all timing numbers are.
+- **Different hardware.** ViT runs (`base`, `full`, the four one-change trials): RTX 4090, PyTorch 2.5.1. CNN runs and the two E4 runs: RTX 5090, PyTorch 2.11. Accuracy is not affected by this in any way we expect, but all timing numbers are.
 - **Small validation set.** 600 photos (3 per species) is a noisy yardstick for picking the best epoch and for comparing the trials.
 - **Test set seen.** We have looked at test results for all runs. Decisions after this point should be made on validation only.
 - **Not the proposal's plain ViT.** The proposal described a textbook ViT (6 blocks, 384 dimensions, class token). We built the stronger PatchVision-X hybrid instead; the `base` run is the nearest "plain" reference but still uses the conv tokenizer and graph attention. The deviation is documented in [`ViT_PatchVisionX/README.md`](ViT_PatchVisionX/README.md#differences-from-the-original-project-proposal).

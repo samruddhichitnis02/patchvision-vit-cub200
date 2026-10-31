@@ -560,11 +560,11 @@ Cheap regularisation helps a little, but it is not the answer to memorizing on i
 - [x] Implement PatchVision-X (model, losses, trainer, logging, monitor)
 - [x] Run `full` and `base` once (seed 42)
 - [x] **First round against memorizing:** four one-change trials (stochastic depth 0.3, weight decay 0.1, `auto` augmentation, dropout 0.1). All helped a little; the gap stayed near 50 points ([section 11](#11-overfitting-trials-one-change-at-a-time))
-- [ ] **Second round:** combine the best settings (for example stochastic depth 0.3 + `auto` augmentation, and all four together) and let each run the full 300 epochs, so schedules are comparable
+- [x] **Second round (E4):** combined the best settings, each for the full 300 epochs. `ovf5_dp0.3_autoaug` (stochastic depth 0.3 + `auto` augmentation) reached **53.00 %** test top-1 and `ovf6_all_four` **52.40 %**, against 47.39 % for `full` and 52.07 % for the best single change. The two combinations are tied with each other, and the gain over drop-path 0.3 alone is not statistically significant. The memorizing gap fell only to about 46.8 points. Details: [section 7 of the top-level README](../README.md#7-e4-the-regularization-study). The two runs were trained on an RTX 5090 with PyTorch 2.11, the earlier ones on an RTX 4090 with PyTorch 2.5.1. Reproduce with `python train.py ovf5_dp0.3_autoaug 42` and `python train.py ovf6_all_four 42`.
 - [ ] **If the gap stays near 50 points:** try a smaller model, a larger consistency weight, or learning from the training photos without labels. We would judge each by the *gap* and not only by accuracy.
 - [ ] **Ablations:** add the ingredients one at a time (the experiments `lfe`, `multiscale`, `arch_x`, `arch_x+bbox`, `arch_x+ema`, `arch_x+cons`, `arch_x+boxcrop`, and leave-one-out versions `full-...` are already defined in the code)
 - [ ] **3 seeds** (42, 43, 44) for the final recipe and for `base`, to report mean and standard deviation
-- [ ] **Baselines:** a small CNN and a plain ViT, on identical splits
+- [x] **CNN baselines:** two ResNet-style CNNs on identical splits are done (see [`../CNN_Baseline`](../CNN_Baseline)); a plain textbook ViT is still not built
 - [ ] Final report with the ablation table, curves, confusion matrices and attention figures
 
 ---
