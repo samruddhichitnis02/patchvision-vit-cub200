@@ -1,0 +1,1 @@
+PatchVision-X is right and both CNNs are wrong on **493** test photos; both CNNs are right and PatchVision-X is wrong on **349** (of 5794).
