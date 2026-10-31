@@ -1,0 +1,17 @@
+small top1 43.65 top5 69.02 f1 43.54 ece 7.07 gap 54.7
+large top1 45.86 top5 71.16 f1 45.79 ece 8.56 gap 53.3
+cnn_small: best epoch 163 of 223 run, val top-1 at best 44.5, train 33.5 min, 9.0 s/epoch, params 4.217 M, GFLOPs 1.40, latency bs1 1.55 ms
+cnn_large: best epoch 140 of 200 run, val top-1 at best 46.7, train 30.0 min, 9.0 s/epoch, params 11.279 M, GFLOPs 3.63, latency bs1 1.95 ms
+cnn_small params by part (M): stem 0.01, stage 1 0.06, stage 2 0.20, stage 3 0.78, stage 4 3.12, head 0.06
+cnn_small share in stages 3+4: 92%
+cnn_small: EMA minus raw validation top-1, mean over epochs>=50: +3.02 points
+cnn_large: EMA minus raw validation top-1, mean over epochs>=50: +4.17 points
+small hardest 5: Fish Crow (9), Lincoln Sparrow (10), American Crow (11), Vesper Sparrow (11), Western Wood Pewee (12)
+small easiest 5: Painted Bunting (86), Red headed Woodpecker (83), Downy Woodpecker (80), Cerulean Warbler (79), European Goldfinch (78)
+large hardest 5: Pelagic Cormorant (7), Western Wood Pewee (11), Black Tern (12), Brewer Blackbird (13), Mockingbird (14)
+large easiest 5: Painted Bunting (90), Downy Woodpecker (83), Purple Finch (83), Red headed Woodpecker (81), Evening Grosbeak (80)
+large better on 123 species, small better on 73, tied 4
+small top mix-ups: Elegant Tern -> Caspian Tern (9x); American Crow -> Fish Crow (8x); Eared Grebe -> Horned Grebe (8x); Artic Tern -> Common Tern (7x); Horned Grebe -> Eared Grebe (7x)
+large top mix-ups: American Crow -> Fish Crow (10x); Artic Tern -> Common Tern (9x); Western Wood Pewee -> Olive sided Flycatcher (9x); Vermilion Flycatcher -> Scarlet Tanager (8x); Herring Gull -> California Gull (8x)
+of these 12 photos: small right on 7, large right on 6
+both CNNs right on 2178 photos, both wrong on 2788, only small right 350, only large right 478 (of 5794)
