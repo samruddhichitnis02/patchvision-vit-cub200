@@ -9,5 +9,9 @@ __pycache__/
 .ipynb_checkpoints/
 
 # large training state (resumable checkpoints, periodic weights)
-results/**/last.pt
-results/**/weights/
+**/results/**/last.pt
+**/results/**/weights/
+# model weights (do not upload)
+*.pt
+*.pth
+*.ckpt
