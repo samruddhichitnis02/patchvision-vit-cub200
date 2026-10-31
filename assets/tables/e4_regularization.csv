@@ -1,0 +1,8 @@
+run,epochs run,best epoch,lowest val loss,val top-1 smoothed (%),memorizing gap (pts),test top-1 (%),test top-5 (%),test macro-F1 (%),test ECE (%)
+full (reference),213,153,2.32,48.38,49.83,47.39,73.59,47.05,5.95
+drop-path 0.3,300,246,2.14,51.35,48.33,52.07,75.15,51.68,10.77
+weight decay 0.1,208,148,2.26,50.07,49.17,50.03,75.15,49.57,7.38
+auto-augment,239,179,2.14,50.57,48.5,50.26,75.79,50.07,8.09
+dropout 0.1,253,193,2.23,50.82,48.83,48.08,73.16,47.62,5.7
+drop-path 0.3 + auto-aug,300,252,2.05,53.1,46.83,53.0,78.1,52.74,10.45
+all four together,300,258,2.02,52.87,46.67,52.4,78.22,52.26,9.19

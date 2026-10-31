@@ -635,7 +635,32 @@ def anim_e4():
     plt.close(fig)
 
 
-PARTS = {"bars": part_bars, "efficiency": part_efficiency, "curves": part_curves, "gap": part_gap, "scorecard": part_scorecard,
+def part_e4_significance():
+    """Paired exact test of the E4 winner against the reference runs, on the same test photos."""
+    P = {}
+    for lab, name, base in [("PatchVision-X (full)", "full", VIT), ("drop-path 0.3 (ovf1)", "ovf1_droppath0.3", VIT),
+                            ("E4 drop-path 0.3 + auto-aug (ovf5)", "ovf5_dp0.3_autoaug", VIT), ("E4 all four (ovf6)", "ovf6_all_four", VIT),
+                            ("CNN small", "cnn_small", CNN), ("CNN large", "cnn_large", CNN)]:
+        r = load_run(lab, name, base)
+        if r is not None:
+            P[lab] = r["preds"].set_index("image_id").sort_index()
+    ref = P["PatchVision-X (full)"]
+    cor = {k: (v.loc[ref.index, "pred"] == v.loc[ref.index, "label"]).values for k, v in P.items()}
+    pairs = [("E4 drop-path 0.3 + auto-aug (ovf5)", "PatchVision-X (full)"), ("E4 drop-path 0.3 + auto-aug (ovf5)", "drop-path 0.3 (ovf1)"),
+             ("E4 all four (ovf6)", "PatchVision-X (full)"), ("E4 all four (ovf6)", "drop-path 0.3 (ovf1)"),
+             ("E4 drop-path 0.3 + auto-aug (ovf5)", "E4 all four (ovf6)"), ("E4 drop-path 0.3 + auto-aug (ovf5)", "CNN large"),
+             ("E4 drop-path 0.3 + auto-aug (ovf5)", "CNN small")]
+    md = ["| Comparison (A vs B) | A minus B, top-1 points | Photos only A gets right | Photos only B gets right | p-value (exact paired test) | Significant at 5%? |",
+          "|---|---|---|---|---|---|"]
+    for a, b in pairs:
+        if a in cor and b in cor:
+            x, y, p = mcnemar_exact(cor[a], cor[b])
+            md.append(f"| {a} vs {b} | {100 * (cor[a].mean() - cor[b].mean()):+.2f} | {x} | {y} | {('<0.0001' if p < 0.0001 else f'{p:.4f}')} | {'yes' if p < 0.05 else 'no'} |")
+    (TAB / "e4_significance.md").write_text("\n".join(md), encoding="utf-8")
+    print("\n".join(md))
+
+
+PARTS = {"e4sig": part_e4_significance, "bars": part_bars, "efficiency": part_efficiency, "curves": part_curves, "gap": part_gap, "scorecard": part_scorecard,
          "species": part_species, "significance": part_significance, "arch": part_architectures, "samples": part_samples,
          "e4": part_e4, "race": anim_race, "reveal": anim_predictions, "e4race": anim_e4}
 
