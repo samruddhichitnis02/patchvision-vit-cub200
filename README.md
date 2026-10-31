@@ -365,24 +365,7 @@ Both use the full 300-epoch schedule (early stopping off) so they are comparable
 
 ---
 
-## 9. What is left from the proposal
-
-| Item | Status |
-|---|---|
-| Dataset, fixed split, metrics pipeline | ✅ done |
-| ViT trained from scratch, attention maps, error analysis | ✅ done (as PatchVision-X) |
-| **E1** CNN baseline | ✅ done (small and large, seed 42) |
-| **E4** regularization study | 🟡 one-change trials done; combined runs **running** |
-| **E5** three seeds, mean ± std | ❌ not done (all runs are seed 42) |
-| **E3** model depth (2 vs 4 vs 8 blocks) | ❌ not run (a config setting, cheap) |
-| **E2** patch size 8×8 vs 16×16 | ❌ not run (needs a tokenizer change; 4× the tokens, much more compute) |
-| Single-ingredient ablations (LFE, multi-scale, each training trick) | ❌ defined in code, not run |
-| Same-GPU speed benchmark of ViT vs CNN | ❌ pending |
-| Final report and presentation | ❌ not started |
-
----
-
-## 10. How to reproduce
+## 9. How to reproduce
 
 ```powershell
 # data: download CUB-200-2011 into ./CUB_200_2011 (not stored in Git)
