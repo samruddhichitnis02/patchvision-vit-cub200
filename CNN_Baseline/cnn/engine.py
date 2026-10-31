@@ -1,0 +1,388 @@
+"""
+CNN trainer: the training / validation / checkpoint / logging / test loop for the CNN baselines.
+
+Same structure and SAME output files as the ViT trainer (ViT_PatchVisionX/patchvision/engine.py), minus everything
+that needs attention maps (box-attention loss, flip-consistency loss, attention snapshots).  Everything is written to
+<results>/<experiment>/seed<seed>/ :
+
+    config.json  env.json  train_log.txt  steps.csv  history.csv  curves.png
+    val_reports/epoch_XXX_{per_class.csv,confusion.npy}      weights/epoch_XXX.pt
+    best_model.pt  last.pt  (resumable: run the same command again after an interruption)
+    test_metrics.json  test_per_class.csv  test_confusion_matrix.{npy,png}  test_predictions.csv
+    test_reliability.{png,csv}
+
+Data, augmentation, mixup/CutMix, optimiser, schedule, EMA, early stopping and metrics are imported from the ViT
+study's `patchvision` package, so both studies are measured identically.
+"""
+from __future__ import annotations
+
+import copy
+import json
+import time
+from typing import Optional
+
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn.functional as F
+
+from . import _vit  # noqa: F401
+from patchvision.data import MixupCutmix, build_loaders, load_data_info
+from patchvision.losses import SoftTargetCrossEntropy, smooth_one_hot
+from patchvision.metrics import MetricTracker, measure_efficiency
+from patchvision.optim import build_optimizer, build_scheduler
+from patchvision.regularization import EarlyStopping, ModelEMA
+from patchvision.utils import Logger, count_parameters, env_info, fmt_time, get_device, save_json, seed_everything
+from patchvision import visualize as viz
+
+from .config import CNNExperiment, PathsConfig
+from .model import build_model
+
+
+def _fmt(d: dict, k: str, spec: str = ".2f") -> str:
+    return format(d[k], spec) if k in d and d[k] == d[k] else "n/a"
+
+
+@torch.no_grad()
+def evaluate(model, loader, device, num_classes: int, amp: tuple, collect: bool = False):
+    """Returns (metrics dict, MetricTracker, predictions DataFrame or None). Hard labels, no augmentation."""
+    use_amp, amp_dtype = amp
+    model.eval()
+    tracker = MetricTracker(num_classes, track_calibration=True)
+    rows, t0 = [], time.time()
+    for x, _m, y, iid in loader:
+        x, y = x.to(device), y.to(device)
+        with torch.autocast(device.type, dtype=amp_dtype, enabled=use_amp):
+            logits = model(x)
+        logits = logits.float()
+        tracker.update(logits, y, F.cross_entropy(logits, y).item())
+        if collect:
+            conf, pred = torch.softmax(logits, -1).max(1)
+            rows.append(pd.DataFrame({"image_id": iid.numpy(), "label": y.cpu().numpy(), "pred": pred.cpu().numpy(),
+                                      "confidence": conf.cpu().numpy()}))
+    res = tracker.compute()
+    res["time_s"] = time.time() - t0
+    return res, tracker, (pd.concat(rows, ignore_index=True) if collect else None)
+
+
+class CNNTrainer:
+    def __init__(self, exp: CNNExperiment, paths: PathsConfig, device: Optional[torch.device] = None,
+                 num_workers: int = 4, step_print_every: int = 1, resume: bool = True, quiet: bool = False):
+        self.exp = copy.deepcopy(exp)
+        self.paths, self.resume, self.quiet = paths, resume, quiet
+        self.device = device or get_device()
+        self.num_workers, self.step_print_every = num_workers, step_print_every
+        self.run_dir = paths.results / exp.name / f"seed{exp.seed}"
+
+    # ------------------------------------------------------------------ public
+    def run(self) -> dict:
+        done = self.run_dir / "test_metrics.json"
+        if self.resume and done.exists():
+            print(f"[{self.exp.name} | seed {self.exp.seed}] already finished -> loading {done}")
+            return json.loads(done.read_text())["row"]
+        self._setup()
+        self._train_loop()
+        return self._final_test()
+
+    # ------------------------------------------------------------------ setup
+    def _setup(self):
+        exp, rd, dev = self.exp, self.run_dir, self.device
+        tc, mc = exp.train, exp.model
+        rd.mkdir(parents=True, exist_ok=True)
+        resuming = self.resume and (rd / "last.pt").exists()
+        if not resuming:
+            for f in ("train_log.txt", "steps.csv", "history.csv"):
+                (rd / f).unlink(missing_ok=True)
+        self.log = Logger(rd / "train_log.txt", self.quiet)
+        seed_everything(exp.seed)
+
+        self.info = load_data_info(self.paths)
+        mc.img_size, mc.num_classes = self.info.img_size, self.info.num_classes
+        self.ds, self.dl = build_loaders(self.info, tc, exp.seed, self.num_workers, dev.type == "cuda")
+
+        self.model = build_model(mc).to(dev)
+        self.opt = build_optimizer(self.model, tc)
+        self.sched = build_scheduler(self.opt, tc, len(self.dl["train"]))
+        self.use_amp = tc.amp and dev.type == "cuda"
+        self.amp_dtype = (torch.bfloat16 if (dev.type == "cuda" and torch.cuda.get_device_capability()[0] >= 8)
+                          else torch.float16)
+        self.amp = (self.use_amp, self.amp_dtype)
+        self.scaler = torch.amp.GradScaler("cuda") if (self.use_amp and self.amp_dtype == torch.float16) else None
+        self.ce = SoftTargetCrossEntropy()
+        mx = self.info.mixcfg
+        self.mixer = (MixupCutmix(self.info.num_classes, mx["mixup_alpha"], mx["cutmix_alpha"], mx["p_cutmix"],
+                                  tc.label_smoothing) if tc.use_mixup_cutmix else None)
+        self.ema = ModelEMA(self.model, tc.ema_decay) if tc.use_ema else None
+        self.stopper = EarlyStopping(tc.early_stop_patience, tc.early_stop_start,
+                                     "min" if tc.best_metric == "loss" else "max")
+        self.history, self.best, self.best_epoch, self.start_epoch = [], None, 0, 1
+        self.global_step, self.elapsed_prev, self.stopped_early = 0, 0.0, False
+        self.n_params = count_parameters(self.model)[0]
+
+        if resuming:
+            ck = torch.load(rd / "last.pt", map_location=dev, weights_only=False)
+            self.model.load_state_dict(ck["model"])
+            self.opt.load_state_dict(ck["optimizer"])
+            self.sched.load_state_dict(ck["scheduler"])
+            if self.scaler is not None and ck.get("scaler"):
+                self.scaler.load_state_dict(ck["scaler"])
+            if self.ema is not None and ck.get("ema"):
+                self.ema.load_state_dict(ck["ema"])
+            self.stopper.load_state_dict(ck["stopper"])
+            self.history, self.best, self.best_epoch = ck["history"], ck["best"], ck["best_epoch"]
+            self.start_epoch, self.global_step, self.elapsed_prev = ck["epoch"] + 1, ck["global_step"], ck["elapsed_s"]
+            self.log(f"### RESUMED from last.pt at epoch {self.start_epoch} "
+                     f"(best {tc.best_metric} {self.best} @ epoch {self.best_epoch})")
+        else:
+            save_json(exp.to_dict(), rd / "config.json")
+            save_json(env_info(), rd / "env.json")
+            L = self.log
+            L("=" * 130)
+            L(f"RUN {exp.name} | seed {exp.seed} | device {dev} | AMP {self.use_amp} ({self.amp_dtype})")
+            L(f"model  {self.n_params / 1e6:.2f} M params | {mc}")
+            L(f"train  {tc}")
+            L(f"data   splits {self.info.splits} | classes {self.info.num_classes} | "
+              f"steps/epoch {len(self.dl['train'])} | total steps {len(self.dl['train']) * tc.epochs:,}")
+            L("=" * 130)
+
+    @property
+    def eval_model(self):
+        return self.ema.module if self.ema is not None else self.model
+
+    def _is_better(self, new, best) -> bool:
+        if best is None:
+            return True
+        return new < best if self.exp.train.best_metric == "loss" else new > best
+
+    # ------------------------------------------------------------------ one training epoch
+    def _train_epoch(self, epoch: int, step_rows: list) -> dict:
+        tc, dev, log = self.exp.train, self.device, self.log
+        model, loader = self.model, self.dl["train"]
+        model.train()
+        tracker = MetricTracker(self.info.num_classes)
+        n_steps, t_epoch = len(loader), time.time()
+        loss_sum = gnorm_sum = data_time = 0.0
+        skipped = 0
+        lr_first = self.opt.param_groups[0]["lr"]
+        if dev.type == "cuda":
+            torch.cuda.reset_peak_memory_stats()
+        t_prev = time.time()
+        for step, (x, m, y, _) in enumerate(loader, 1):
+            t_data = time.time() - t_prev
+            t0 = time.time()
+            x, m, y = x.to(dev, non_blocking=True), m.to(dev, non_blocking=True), y.to(dev, non_blocking=True)
+            if self.mixer is not None:
+                x, soft, m, mixinfo = self.mixer(x, y, m)
+            else:
+                soft, mixinfo = smooth_one_hot(y, self.info.num_classes, tc.label_smoothing), {"type": "none", "lam": 1.0}
+            hard = soft.argmax(1)                                 # dominant label (approximate train accuracy)
+            B = x.shape[0]
+
+            lr_now = self.opt.param_groups[0]["lr"]
+            with torch.autocast(dev.type, dtype=self.amp_dtype, enabled=self.use_amp):
+                logits = model(x)
+            loss = self.ce(logits.float(), soft)
+            if not torch.isfinite(loss):
+                skipped += 1
+                log(f"  !! step {step}: non-finite loss ({loss.item()}) -> step skipped")
+                self.opt.zero_grad(set_to_none=True)
+                t_prev = time.time()
+                continue
+            self.opt.zero_grad(set_to_none=True)
+            if self.scaler is not None:
+                self.scaler.scale(loss).backward()
+                self.scaler.unscale_(self.opt)
+                gnorm = torch.nn.utils.clip_grad_norm_(model.parameters(), tc.grad_clip).item()
+                self.scaler.step(self.opt)
+                self.scaler.update()
+            else:
+                loss.backward()
+                gnorm = torch.nn.utils.clip_grad_norm_(model.parameters(), tc.grad_clip).item()
+                self.opt.step()
+            self.sched.step()
+            if self.ema is not None:
+                self.ema.update(model)
+            self.global_step += 1
+
+            step_time = time.time() - t0
+            lg = logits.detach().float()
+            pred5 = lg.topk(min(5, lg.shape[1]), 1).indices
+            a1 = (pred5[:, 0] == hard).float().mean().item() * 100
+            a5 = (pred5 == hard[:, None]).any(1).float().mean().item() * 100
+            lval = loss.item()
+            tracker.update(lg, hard, lval)
+            loss_sum += lval
+            gnorm_sum += gnorm
+            data_time += t_data
+            ips = B / max(1e-9, step_time + t_data)
+            eta_epoch = (time.time() - t_epoch) / step * (n_steps - step)
+            mem = torch.cuda.max_memory_allocated() / 1e9 if dev.type == "cuda" else 0.0
+            # The "(ce | bbox | cons)" and "in-box" fields are zeros: they only keep this line parseable by the ViT
+            # study's live monitor (watch_training.py), which reads the same format.
+            line = (f"[E{epoch:03d}/{tc.epochs} | S{step:03d}/{n_steps} | g{self.global_step:06d}] "
+                    f"loss {lval:.4f} (ce {lval:.4f} | bbox 0.0000 | cons 0.0000/0.0000) | "
+                    f"acc1 {a1:5.1f}% acc5 {a5:5.1f}% | in-box 0.000 | {mixinfo['type']}(lam={mixinfo['lam']:.2f}) | "
+                    f"lr {lr_now:.3e} | gnorm {gnorm:6.3f} | {ips:5.0f} img/s (data wait {t_data * 1000:4.0f} ms) | "
+                    f"mem {mem:.2f} GB | step {step_time:.2f}s | epoch ETA {fmt_time(eta_epoch)}")
+            log(line, show=(step % self.step_print_every == 0 or step == n_steps))
+            step_rows.append({"epoch": epoch, "step": step, "global_step": self.global_step, "total": lval, "ce": lval,
+                              "acc1": a1, "acc5": a5, "lr": lr_now, "gnorm": gnorm, "img_per_s": ips,
+                              "data_wait_ms": t_data * 1000, "mem_gb": mem, "mix": mixinfo["type"],
+                              "lam": mixinfo["lam"]})
+            t_prev = time.time()
+        res = tracker.compute()
+        n = max(1, n_steps - skipped)
+        res.update({"ce": loss_sum / n, "gnorm": gnorm_sum / n, "lr_first": lr_first,
+                    "lr_last": self.opt.param_groups[0]["lr"], "time_s": time.time() - t_epoch,
+                    "data_wait_frac": data_time / max(1e-9, time.time() - t_epoch), "skipped": skipped})
+        return res
+
+    # ------------------------------------------------------------------ main loop
+    def _train_loop(self):
+        tc, rd, log = self.exp.train, self.run_dir, self.log
+        ev = lambda model, split, collect=False: evaluate(model, self.dl[split], self.device,
+                                                          self.info.num_classes, self.amp, collect)
+        t_run, epoch_times, step_rows = time.time(), [], []
+        epoch = self.start_epoch - 1
+        for epoch in range(self.start_epoch, tc.epochs + 1):
+            log(f"\n{'-' * 60} EPOCH {epoch:03d}/{tc.epochs} {'-' * 60}")
+            tr = self._train_epoch(epoch, step_rows)
+            va, va_trk, _ = ev(self.eval_model, "val")
+            va_raw = ev(self.model, "val")[0] if self.ema is not None else None
+            clean = None
+            if epoch == 1 or epoch % tc.clean_eval_every == 0 or epoch == tc.epochs:
+                clean = ev(self.eval_model, "train_clean")[0]
+            epoch_times.append(tr["time_s"] + va["time_s"])
+            eta = np.mean(epoch_times[-10:]) * (tc.epochs - epoch)
+
+            score = va[tc.best_metric]
+            improved = self._is_better(score, self.best)
+            if improved:
+                self.best, self.best_epoch = score, epoch
+                torch.save({"exp": self.exp.to_dict(), "epoch": epoch, "state": self.eval_model.state_dict(),
+                            "uses_ema": self.ema is not None, "val": va}, rd / "best_model.pt")
+            stop = self.stopper.step(score, epoch)
+
+            # `train_loss` / `train_ce` are both the CE here; the column names match the ViT history.csv so the
+            # ViT plotting and comparison helpers work on CNN runs unchanged.
+            rec = {"epoch": epoch, **{f"train_{k}": v for k, v in tr.items()}, **{f"val_{k}": v for k, v in va.items()},
+                   "valraw_acc1": va_raw["acc1"] if va_raw else np.nan, "valraw_loss": va_raw["loss"] if va_raw else np.nan,
+                   "clean_acc1": clean["acc1"] if clean else np.nan, "clean_loss": clean["loss"] if clean else np.nan,
+                   "gap_acc1": tr["acc1"] - va["acc1"], "is_best": improved}
+            self.history.append(rec)
+
+            log("")
+            log(f"  TRAIN  loss {tr['loss']:.4f} | top-1 {tr['acc1']:.2f}% top-5 {tr['acc5']:.2f}% | "
+                f"macro F1 {tr['macro_f1']:.2f}   (vs dominant mixup/cutmix label: approximate)")
+            log(f"  VAL    loss {va['loss']:.4f} | top-1 {va['acc1']:.2f}% top-5 {va['acc5']:.2f}% | macro P/R/F1 "
+                f"{va['macro_precision']:.2f}/{va['macro_recall']:.2f}/{va['macro_f1']:.2f} | ECE {_fmt(va, 'ece')}% "
+                f"(n={va['n']}, {'EMA' if self.ema else 'raw'} weights)")
+            if va_raw:
+                log(f"  VAL raw weights (no EMA): top-1 {va_raw['acc1']:.2f}% loss {va_raw['loss']:.4f}")
+            if clean:
+                log(f"  CLEAN  train images without augmentation: top-1 {clean['acc1']:.2f}% loss {clean['loss']:.4f} "
+                    f"-> TRUE overfitting gap {clean['acc1'] - va['acc1']:+.2f} pts")
+            log(f"  OPT    lr {tr['lr_first']:.3e} -> {tr['lr_last']:.3e} | grad-norm {tr['gnorm']:.3f} | "
+                f"skipped {tr['skipped']}")
+            log(f"  TIME   {fmt_time(tr['time_s'])} train + {fmt_time(va['time_s'])} val | data-wait "
+                f"{tr['data_wait_frac'] * 100:.0f}% | run {fmt_time(self.elapsed_prev + time.time() - t_run)} | ETA {fmt_time(eta)}")
+            log(f"  BEST   val {tc.best_metric} {self.best:.4f} @ epoch {self.best_epoch}"
+                + ("   <== NEW BEST" if improved else f"   (no improvement for {self.stopper.wait} epochs)"))
+
+            pd.DataFrame(self.history).to_csv(rd / "history.csv", index=False)
+            if step_rows:
+                pd.DataFrame(step_rows).to_csv(rd / "steps.csv", mode="a", index=False,
+                                               header=not (rd / "steps.csv").exists())
+                step_rows.clear()
+
+            last = epoch == tc.epochs or stop
+            if epoch == 1 or epoch % tc.snapshot_every == 0 or last:
+                self._snapshot(epoch, va_trk)
+            if tc.weights_every and epoch % tc.weights_every == 0:
+                (rd / "weights").mkdir(exist_ok=True)
+                torch.save(self.eval_model.state_dict(), rd / "weights" / f"epoch_{epoch:03d}.pt")
+            if epoch % tc.plot_every == 0 or last:
+                viz.plot_curves(pd.DataFrame(self.history), rd / "curves.png", f"{self.exp.name} (seed {self.exp.seed})")
+            torch.save({"epoch": epoch, "model": self.model.state_dict(), "optimizer": self.opt.state_dict(),
+                        "scheduler": self.sched.state_dict(), "scaler": self.scaler.state_dict() if self.scaler else None,
+                        "ema": self.ema.state_dict() if self.ema else None, "stopper": self.stopper.state_dict(),
+                        "history": self.history, "best": self.best, "best_epoch": self.best_epoch,
+                        "global_step": self.global_step, "elapsed_s": self.elapsed_prev + time.time() - t_run},
+                       rd / "last.pt")
+            if stop:
+                self.stopped_early = True
+                log(f"\n*** EARLY STOP: no validation improvement for {self.stopper.wait} epochs "
+                    f"(best epoch {self.best_epoch}) ***")
+                break
+        self.epochs_run = epoch
+        self.train_time_s = self.elapsed_prev + time.time() - t_run
+
+    def _snapshot(self, epoch: int, va_trk: MetricTracker):
+        rd = self.run_dir
+        (rd / "val_reports").mkdir(exist_ok=True)
+        pd.DataFrame(va_trk.per_class_report(self.ds["val"].class_names)).to_csv(
+            rd / "val_reports" / f"epoch_{epoch:03d}_per_class.csv", index=False)
+        np.save(rd / "val_reports" / f"epoch_{epoch:03d}_confusion.npy", va_trk.conf.numpy())
+
+    # ------------------------------------------------------------------ test
+    def _final_test(self) -> dict:
+        exp, tc, rd, log = self.exp, self.exp.train, self.run_dir, self.log
+        log("\n" + "=" * 130 + f"\nTRAINING DONE. Loading best model (epoch {self.best_epoch}, val {tc.best_metric} "
+            f"{self.best:.4f}) for the TEST set\n" + "=" * 130)
+        ck = torch.load(rd / "best_model.pt", map_location=self.device, weights_only=False)
+        model = self.eval_model
+        model.load_state_dict(ck["state"])
+        te, trk, preds = evaluate(model, self.dl["test"], self.device, self.info.num_classes, self.amp, True)
+        eff = measure_efficiency(model, self.device, self.info.img_size, batch_sizes=(1, tc.batch_size),
+                                 iters=20 if self.device.type == "cuda" else 3)
+        names = self.ds["test"].class_names
+        log(f"TEST   loss {te['loss']:.4f} | top-1 {te['acc1']:.2f}% top-5 {te['acc5']:.2f}% | macro P/R/F1 "
+            f"{te['macro_precision']:.2f}/{te['macro_recall']:.2f}/{te['macro_f1']:.2f} | weighted F1 {te['weighted_f1']:.2f} "
+            f"| ECE {_fmt(te, 'ece')}% | n={te['n']}")
+        log("EFFICIENCY " + " | ".join(f"{k} {v:.3f}" for k, v in eff.items()))
+
+        report = pd.DataFrame(trk.per_class_report(names))
+        report.to_csv(rd / "test_per_class.csv", index=False)
+        preds.to_csv(rd / "test_predictions.csv", index=False)
+        conf = trk.conf.clone()
+        np.save(rd / "test_confusion_matrix.npy", conf.numpy())
+        viz.plot_confusion(conf.numpy(), rd / "test_confusion_matrix.png", f"{exp.name} test confusion matrix")
+        ece, bins = trk.calibration_table()
+        pd.DataFrame(bins).to_csv(rd / "test_reliability.csv", index=False)
+        viz.plot_reliability(bins, ece, rd / "test_reliability.png", f"{exp.name} test")
+        hist = pd.DataFrame(self.history)
+        viz.plot_curves(hist, rd / "curves.png", f"{exp.name} (seed {exp.seed})")
+
+        log("worst 10 classes (F1):\n" + report.sort_values("f1").head(10).to_string(index=False))
+        log("best 10 classes (F1):\n" + report.sort_values("f1", ascending=False).head(10).to_string(index=False))
+        off = conf.clone()
+        off.fill_diagonal_(0)
+        top = torch.topk(off.flatten(), min(15, off.numel()))
+        nc = self.info.num_classes
+        pairs = [(names[i // nc], names[i % nc], int(v)) for v, i in zip(top.values, top.indices) if v > 0]
+        log("most frequent confusions (true -> predicted : count):\n" + "\n".join(f"  {a} -> {b} : {n}" for a, b, n in pairs))
+
+        best_row = hist[hist["epoch"] == self.best_epoch].iloc[0]
+        clean_rows = hist.dropna(subset=["clean_acc1"])
+        near = clean_rows.iloc[(clean_rows["epoch"] - self.best_epoch).abs().argsort()[:1]]
+        gap = float(near["clean_acc1"].iloc[0] - near["val_acc1"].iloc[0]) if len(near) else float("nan")
+        row = {"experiment": exp.name, "seed": exp.seed, "best_epoch": self.best_epoch, "epochs_run": self.epochs_run,
+               "stopped_early": self.stopped_early, "train_time_s": self.train_time_s,
+               "sec_per_epoch": self.train_time_s / max(1, self.epochs_run),
+               f"best_val_{tc.best_metric}": self.best, "val_acc1_at_best": float(best_row["val_acc1"]),
+               "overfit_gap_clean_minus_val": gap,
+               "test_acc1": te["acc1"], "test_acc5": te["acc5"], "test_macro_f1": te["macro_f1"],
+               "test_macro_precision": te["macro_precision"], "test_macro_recall": te["macro_recall"],
+               "test_weighted_f1": te["weighted_f1"], "test_loss": te["loss"], "test_ece": te.get("ece", float("nan")),
+               "test_attn_in_box": float("nan"), "params_M": eff["params_M"],
+               "GFLOPs": eff["GFLOPs_per_image"], "latency_ms_bs1": eff["latency_ms_bs1"],
+               f"throughput_img_s_bs{tc.batch_size}": eff[f"throughput_img_s_bs{tc.batch_size}"],
+               "run_dir": str(rd)}
+        save_json({"row": row, "test": te, "efficiency": eff, "config": exp.to_dict(), "env": env_info()},
+                  rd / "test_metrics.json")
+        log(f"\nSaved everything to {rd}")
+        return row
+
+
+def run_experiment(exp: CNNExperiment, paths: PathsConfig, **trainer_kwargs) -> dict:
+    return CNNTrainer(exp, paths, **trainer_kwargs).run()
