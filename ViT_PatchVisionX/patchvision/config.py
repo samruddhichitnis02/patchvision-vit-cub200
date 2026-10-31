@@ -210,6 +210,24 @@ def overfit_trials() -> Dict[str, Dict[str, Any]]:
     }
 
 
+def combined_trials() -> Dict[str, Dict[str, Any]]:
+    """SECOND ROUND (proposal E4): combine the settings that helped in the one-change trials.  Kept apart from
+    overfit_trials() on purpose: that function promises 'exactly one change' and overfitting_trials.ipynb asserts it.
+    Both runs use the full 300-epoch cosine schedule (early stopping off), because the README noted that the one
+    trial that ran all 300 epochs (ovf1) was not schedule-comparable with the ones that stopped early.
+    The best epoch is still picked on VALIDATION only."""
+    return {
+        "ovf5_dp0.3_autoaug": {
+            "base": "full", "model": {"drop_path": 0.3}, "train": {"aug_tier": "auto", "early_stop_patience": 0},
+            "change": "the two best single changes together: stochastic depth 0.3 + 'auto' augmentation; full 300 epochs"},
+        "ovf6_all_four": {
+            "base": "full", "model": {"drop_path": 0.3, "drop": 0.1, "attn_drop": 0.1},
+            "train": {"aug_tier": "auto", "weight_decay": 0.1, "early_stop_patience": 0},
+            "change": "all four together: stochastic depth 0.3 + weight decay 0.1 + 'auto' augmentation + dropout 0.1; "
+                      "full 300 epochs"},
+    }
+
+
 def get_trial(name: str, seed: int = 42) -> ExperimentConfig:
-    spec = overfit_trials()[name]
+    spec = {**overfit_trials(), **combined_trials()}[name]
     return get_experiment(spec["base"], seed, spec["model"], spec["train"], run_name=name)
