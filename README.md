@@ -4,7 +4,7 @@
 
 **The question.** With only about 27 training photos per species, can a Vision Transformer learned from scratch keep up with a CNN? We built a small hybrid Vision Transformer (**PatchVision-X**), a matched **CNN baseline**, trained both under the same recipe, and compared them on the same 5,794 unseen test photos.
 
-> **Jump to:** [Result in one minute](#1-the-result-in-one-minute) · [The two models](#3-the-two-models-side-by-side) · [Results](#4-results) · [Winner and why](#5-the-winner-and-why) · [E4 study](#7-e4-the-regularization-study) · [Limits](#8-limits-of-this-study) · [Reproduce](#9-how-to-reproduce)
+> **Jump to:** [Result in one minute](#1-the-result-in-one-minute) · [The two models](#3-the-two-models-side-by-side) · [Results](#4-results) · [Winner and why](#5-the-winner-and-why) · [E4 study](#7-e4-the-regularization-study) · [Limits](#8-limits-of-this-study) · [Reproduce](#9-how-to-reproduce) · [Inference optimization](#10-inference-optimization-making-patchvision-x-fast)
 
 ---
 
@@ -214,6 +214,8 @@ All four models learn the training photos almost perfectly (middle), yet only re
 **Hardware-independent facts:** PatchVision-X and CNN small are the same size (4.27 M vs 4.22 M parameters) and need about the same compute (1.55 vs 1.40 GFLOPs). CNN large costs 2.6× the parameters and 2.3× the compute. So the 3.8-point win of PatchVision-X over CNN small is **not** bought with a bigger model.
 
 **What we cannot say yet:** how much slower PatchVision-X is in wall-clock time. The recorded numbers (15 ms vs 1.6 ms per photo; 71 vs 34 minutes) come from different GPUs and software versions. A same-GPU benchmark is on the to-do list. Note also that PatchVision-X trains each batch twice (original and mirrored) for flip-consistency, which costs real time.
+
+> **Update: the same-GPU benchmark is done.** All four models were re-measured on one RTX 5090 with one software stack: PatchVision-X takes **9.70 ms** per photo against **1.48 ms** for CNN small (6.5×), and the cause is identified. See [section 10](#10-inference-optimization-making-patchvision-x-fast).
 
 ### 4.5 Is the lead real? Paired significance test
 
@@ -448,6 +450,211 @@ patchvision-vit-cub200/
 ├── CNN_Baseline/                      everything about the CNN baselines (code, results, notebook, its own README)
 └── assets/                            figures, animations and tables for this page, plus make_assets.py
 ```
+
+---
+
+## 10. Inference optimization: making PatchVision-X fast
+
+**The new question.** PatchVision-X is the most accurate model in this study, but is it practical? A model that
+wins on accuracy and loses badly on speed is hard to deploy. This part of the project measures how fast every
+model really runs, finds out *why* PatchVision-X is slow, and then removes that cost step by step without losing
+accuracy. Everything lives in [`Inference_Optimization/`](Inference_Optimization).
+
+### The plan
+
+| Step | What | Status |
+|---|---|---|
+| **1** | **Fair baseline**: every model on the same GPU, same software, same method; check accuracy is reproduced | ✅ **done** (below) |
+| 2 | Quick wins: remove training-only work, FP16/BF16, `torch.compile`, CUDA graphs | next |
+| 3 | Export: ONNX, then TensorRT | planned |
+| 4 | INT8 quantization (post-training, then quantization-aware if needed) | planned |
+| 5 | ViT-specific: token merging / pruning, distillation | planned |
+| 6 | Custom fused Triton kernel for the multi-scale graph attention | planned |
+| 7 | Serving under load (latency and throughput with many requests) | planned |
+
+```mermaid
+flowchart LR
+    A["Step 1<br/>baseline<br/>9.70 ms"] --> B["Step 2<br/>compile, graphs,<br/>half precision"]
+    B --> C["Step 3<br/>ONNX /<br/>TensorRT"]
+    C --> D["Step 4<br/>INT8"]
+    D --> E["Step 5<br/>token merging,<br/>distillation"]
+    E --> F["Step 6<br/>Triton kernel"]
+    F --> G["Step 7<br/>serving"]
+    style A fill:#d5e8d4,stroke:#2ca02c
+    style B fill:#eeeeee,stroke:#999999,stroke-dasharray: 5 5
+    style C fill:#eeeeee,stroke:#999999,stroke-dasharray: 5 5
+    style D fill:#eeeeee,stroke:#999999,stroke-dasharray: 5 5
+    style E fill:#eeeeee,stroke:#999999,stroke-dasharray: 5 5
+    style F fill:#eeeeee,stroke:#999999,stroke-dasharray: 5 5
+    style G fill:#eeeeee,stroke:#999999,stroke-dasharray: 5 5
+```
+
+### 10.1 Step 1: the baseline
+
+The timing numbers in [section 4.4](#44-cost) came from two different GPUs and two PyTorch versions, so they
+could not be compared. Step 1 re-measures everything on **one machine, with one method**.
+
+| Setting | Value |
+|---|---|
+| GPU | NVIDIA RTX 5090 (32 GB), driver 610.60, Windows 11 |
+| Software | Python 3.12.10, PyTorch 2.11.0 (CUDA 12.8, cuDNN 9.19), PyTorch defaults (TF32 for convolutions only, no cuDNN autotune) |
+| Models | the trained `best_model.pt` (EMA weights) of all 10 runs; speed for the 4 distinct architectures |
+| What is timed | the model's forward pass on a photo already on the GPU (`torch.inference_mode`), plain PyTorch, FP32 |
+| How | 50 warm-up calls, then 3 rounds × 100 calls timed with CUDA events; median and p95 reported. Batch-1 latency repeated 5 times, interleaved across models |
+| Batch sizes | 1, 8, 32, 64, 128, 256 |
+
+> The `ovf1` to `ovf6` runs are the `full` architecture trained with different regularization (drop-path,
+> dropout, weight decay, augmentation), none of which is active at inference. They all have the same speed,
+> so "PatchVision-X" below means that architecture, with the E4 winner (`ovf5`, 53.0 %) as its weights.
+
+#### First, a sanity check: the models load correctly
+
+Before timing anything, all 10 checkpoints were run on the 5,794 test photos again. Every one reproduces its
+recorded accuracy to within **0.16 points (9 photos)**. The tiny differences come from the order of
+floating-point rounding, not from a loading problem. From here on, the **FP32 predictions are the reference**
+that every optimized version must match.
+
+![Accuracy reproduction check](Inference_Optimization/docs/figures/s1_04_accuracy_check.png)
+
+#### How fast is each model?
+
+![Step 1 speed overview](Inference_Optimization/docs/figures/s1_01_speed_overview.png)
+
+| Model | Params | GFLOPs / photo | **Latency, batch 1** | p95, batch 1 | Photos / s, batch 256 | Test top-1 |
+|---|---|---|---|---|---|---|
+| ViT base | 4.31 M | 1.55 | 9.01 ms | 9.91 ms | 5,044 | 39.68 % |
+| **PatchVision-X** | 4.27 M | 1.55 | **9.70 ms** | 10.47 ms | 4,536 | **52.99 %** (`ovf5`) |
+| CNN small | 4.22 M | 1.40 | 1.48 ms | 1.79 ms | 16,217 | 43.77 % |
+| CNN large | 11.28 M | 3.63 | 1.34 ms | 1.61 ms | 10,730 | 45.88 % |
+
+*Batch-1 latency: median of 5 repeats (spread under ±1 %). Top-1 re-measured in FP32.*
+
+**PatchVision-X is 6.5× slower than the same-size CNN for one photo, and 3.6× slower at large batches**,
+even though it needs about the same arithmetic (1.55 vs 1.40 GFLOPs). Below, the same numbers as a race:
+
+<p align="center">
+  <img src="Inference_Optimization/docs/animations/s1_one_second_race.gif" width="720" alt="One-second race: how many photos each model classifies at batch 1">
+</p>
+
+#### What happens as the batch grows
+
+![Batch-size sweep](Inference_Optimization/docs/figures/s1_02_batch_sweep.png)
+
+The left chart gives away the problem. For the two ViTs, classifying **1 photo takes 10.0 ms and 32 photos take
+10.7 ms**: 32 times the work costs almost nothing extra. Only from batch 64 does the time grow with the work.
+A GPU that is really computing does not behave like that; one that is **waiting** does.
+
+#### Why: the ViTs are launch-bound, not compute-bound
+
+A GPU runs a model as a long list of small programs (*kernels*), each started by the CPU. If the kernels are
+tiny, the GPU finishes each one before the CPU has launched the next, and sits idle in between. The profiler
+shows exactly this:
+
+![Where the time goes](Inference_Optimization/docs/figures/s1_03_where_time_goes.png)
+
+| Model (batch 1) | Kernels per forward pass | GPU actually computing | Total latency | GPU busy |
+|---|---|---|---|---|
+| ViT base | 620 | 1.32 ms | 9.01 ms | 15 % |
+| **PatchVision-X** | **668** | **1.40 ms** | **9.70 ms** | **14 %** |
+| CNN small | 135 | 0.49 ms | 1.48 ms | 33 % |
+| CNN large | 123 | 0.54 ms | 1.34 ms | 41 % |
+
+At batch 1, **PatchVision-X does only 1.4 ms of real GPU work; the other ~8 ms is the GPU waiting** for the CPU
+to launch its 668 small kernels (about 5× as many as a CNN). The graph attention is written as many small
+tensor operations (graph masks, normalizations, einsums, the sparse gate, head mixing), and each is its own
+kernel. At batch 64 the kernels get big enough to keep the GPU busy (84 %), which is why the gap to the CNN
+shrinks with larger batches.
+
+Here is the real GPU timeline of one photo, from the CUDA device trace:
+
+<p align="center">
+  <img src="Inference_Optimization/docs/animations/s1_gpu_timeline.gif" width="860" alt="Real GPU kernel timeline of one forward pass, PatchVision-X vs CNN small">
+</p>
+
+*Each tick is one kernel. The profiler itself slows the CPU side down (14.8 ms here vs 9.7 ms without it), but
+the GPU work is the same: 1.39 ms in 660 kernels for PatchVision-X, 0.46 ms in 117 kernels for CNN small.*
+
+#### The starting point
+
+![Accuracy vs latency](Inference_Optimization/docs/figures/s1_05_accuracy_vs_latency.png)
+
+PatchVision-X sits far right: most accurate, but slowest. The rest of the project tries to move it left into the
+CNN speed zone while keeping its accuracy.
+
+#### What Step 1 tells us
+
+1. **The like-for-like gap is 6.5× at batch 1 and 3.6× at batch 256**, on the same GPU. The older numbers (15 ms vs
+   1.6 ms, about 10×) exaggerated it because they came from different machines.
+2. **It is not the arithmetic.** PatchVision-X and CNN small need nearly the same compute (1.55 vs 1.40 GFLOPs),
+   and the GPU is busy only 14 % of the time.
+3. **It is kernel-launch overhead**: 668 small kernels per photo. This is the most fixable kind of slowness.
+   Fusing kernels (`torch.compile`) and replaying the whole forward pass as one unit (CUDA graphs) attack exactly
+   this, so Step 2 should give the biggest jump.
+4. The training-only outputs (attention maps for the box loss, gate statistics) are still computed at inference
+   in the baseline. Removing them is free speed.
+
+> **Limits of Step 1.** One GPU (RTX 5090) on Windows. The Windows display driver mode (WDDM) is known to add
+> kernel-launch overhead, so launch-bound models may run faster on Linux; not tested here. The timings are model
+> only: JPEG decoding and resizing are excluded (the same for every model). The lab PC is shared; GPU
+> utilization was logged before every measurement, and the batch-1 repeats agree within ±1 %.
+
+<details>
+<summary><b>Full Step 1 numbers, every batch size (click to open)</b></summary>
+
+| Model | Batch | Latency median (ms) | p95 (ms) | Photos / s | Peak GPU memory (MB) |
+|---|---|---|---|---|---|
+| ViT base | 1 | 9.29 | 10.64 | 108 | 35 |
+| ViT base | 8 | 9.86 | 11.18 | 812 | 104 |
+| ViT base | 32 | 10.04 | 10.79 | 3,187 | 335 |
+| ViT base | 64 | 14.74 | 15.12 | 4,343 | 619 |
+| ViT base | 128 | 27.02 | 27.51 | 4,738 | 1,083 |
+| ViT base | 256 | 50.75 | 51.25 | 5,044 | 2,127 |
+| PatchVision-X | 1 | 9.98 | 10.90 | 100 | 37 |
+| PatchVision-X | 8 | 10.35 | 11.24 | 773 | 112 |
+| PatchVision-X | 32 | 10.70 | 11.73 | 2,990 | 370 |
+| PatchVision-X | 64 | 15.69 | 16.09 | 4,080 | 687 |
+| PatchVision-X | 128 | 29.32 | 29.74 | 4,366 | 1,222 |
+| PatchVision-X | 256 | 56.44 | 57.08 | 4,536 | 2,401 |
+| CNN small | 1 | 1.52 | 1.89 | 659 | 41 |
+| CNN small | 8 | 1.31 | 1.44 | 6,123 | 60 |
+| CNN small | 32 | 2.08 | 2.16 | 15,365 | 163 |
+| CNN small | 64 | 3.88 | 4.20 | 16,506 | 302 |
+| CNN small | 128 | 6.96 | 7.29 | 18,397 | 577 |
+| CNN small | 256 | 15.79 | 16.43 | 16,217 | 1,128 |
+| CNN large | 1 | 1.33 | 1.85 | 751 | 69 |
+| CNN large | 8 | 1.40 | 1.67 | 5,729 | 110 |
+| CNN large | 32 | 2.99 | 3.39 | 10,710 | 285 |
+| CNN large | 64 | 5.32 | 5.72 | 12,033 | 481 |
+| CNN large | 128 | 11.04 | 11.61 | 11,598 | 910 |
+| CNN large | 256 | 23.86 | 24.31 | 10,730 | 1,767 |
+
+This sweep is a single run per row; the batch-1 numbers in the main table are the median of 5 repeats, which is
+why they differ slightly (e.g. 9.98 vs 9.70 ms). Raw data:
+[`speed.csv`](Inference_Optimization/results/step1_baseline/speed.csv),
+[`repeatability_bs1.csv`](Inference_Optimization/results/step1_baseline/repeatability_bs1.csv),
+[`profile.csv`](Inference_Optimization/results/step1_baseline/profile.csv),
+[`accuracy.csv`](Inference_Optimization/results/step1_baseline/accuracy.csv),
+[`env.json`](Inference_Optimization/results/step1_baseline/env.json).
+
+</details>
+
+<details>
+<summary><b>Reproduce Step 1 (click to open)</b></summary>
+
+```powershell
+# one-time: environment (PyTorch 2.11 + CUDA 12.8, plus the export / optimization tools used in later steps)
+python -m venv pv-venv
+pv-venv\Scripts\python -m pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cu128
+pv-venv\Scripts\python -m pip install -r Inference_Optimization/requirements.txt
+
+# needs CUB_200_2011/ in the repo root and the best_model.pt files in each results/<run>/seed42/ folder
+pv-venv\Scripts\python Inference_Optimization/step1_baseline.py           # accuracy check, speed sweep, profiler
+pv-venv\Scripts\python Inference_Optimization/step1_repeatability.py      # 5x repeated batch-1 latency
+pv-venv\Scripts\python Inference_Optimization/step1_timeline.py           # GPU kernel timeline of one photo
+pv-venv\Scripts\python Inference_Optimization/make_figures.py             # every figure and GIF above
+```
+
+</details>
 
 ## References
 
