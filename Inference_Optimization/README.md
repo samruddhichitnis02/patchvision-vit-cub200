@@ -3,17 +3,6 @@
 Making PatchVision-X (and the CNN baselines) fast at inference, measured fairly on one GPU.
 The full write-up with figures is **[section 10 of the main README](../README.md#10-inference-optimization-making-patchvision-x-fast)**.
 
-## Status
-
-| Step | What | Status |
-|---|---|---|
-| 1 | Same-GPU baseline, accuracy check, profiler diagnosis | ✅ done |
-| 2 | Remove training-only work, FP16/BF16, `torch.compile`, CUDA graphs | next |
-| 3 | ONNX, TensorRT | planned |
-| 4 | INT8 quantization | planned |
-| 5 | Token merging / pruning, distillation | planned |
-| 6 | Fused Triton kernel for the graph attention | planned |
-| 7 | Serving under load | planned |
 
 **Step 1 in one line:** on an RTX 5090, PatchVision-X takes 9.70 ms per photo against 1.48 ms for the same-size CNN (6.5×).
 The GPU is busy only 14 % of that time, because the model launches 668 small kernels per photo. It is
