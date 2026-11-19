@@ -460,17 +460,6 @@ wins on accuracy and loses badly on speed is hard to deploy. This part of the pr
 model really runs, finds out *why* PatchVision-X is slow, and then removes that cost step by step without losing
 accuracy. Everything lives in [`Inference_Optimization/`](Inference_Optimization).
 
-### The plan
-
-| Step | What | Status |
-|---|---|---|
-| **1** | **Fair baseline**: every model on the same GPU, same software, same method; check accuracy is reproduced | ✅ **done** (below) |
-| 2 | Quick wins: remove training-only work, FP16/BF16, `torch.compile`, CUDA graphs | next |
-| 3 | Export: ONNX, then TensorRT | planned |
-| 4 | INT8 quantization (post-training, then quantization-aware if needed) | planned |
-| 5 | ViT-specific: token merging / pruning, distillation | planned |
-| 6 | Custom fused Triton kernel for the multi-scale graph attention | planned |
-| 7 | Serving under load (latency and throughput with many requests) | planned |
 
 ```mermaid
 flowchart LR
