@@ -1,0 +1,13 @@
+# Install PyTorch first (CUDA 12.8 build, same as the training runs):
+#   pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cu128
+numpy
+pandas
+matplotlib
+scipy
+pillow
+# export / optimization tools (used from Step 2 on)
+onnx==1.23.2
+onnxscript==0.7.2
+onnxruntime-gpu==1.24.4        # last release built for CUDA 12 (1.28+ need CUDA 13)
+tensorrt-cu12==11.5.0.63
+triton-windows==3.6.0.post26   # torch.compile GPU backend on Windows (use `triton` on Linux)

@@ -15,3 +15,7 @@ __pycache__/
 *.pt
 *.pth
 *.ckpt
+
+# inference study: cached pre-processed test set, exported engines
+Inference_Optimization/cache/
+Inference_Optimization/engines/
