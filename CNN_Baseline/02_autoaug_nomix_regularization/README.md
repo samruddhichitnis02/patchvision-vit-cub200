@@ -1,12 +1,12 @@
 # CNN round 02: `auto` augmentation, no Mixup/CutMix, and a regularization search
 
-![task](https://img.shields.io/badge/task-fine--grained%20classification-blue) ![dataset](https://img.shields.io/badge/dataset-CUB--200--2011-green) ![pretrained](https://img.shields.io/badge/pretrained%20weights-none-red) ![runs](https://img.shields.io/badge/CNN%20small-8%20of%209%20runs-orange) ![large](https://img.shields.io/badge/CNN%20large-not%20started-lightgrey) ![seeds](https://img.shields.io/badge/seeds-1%20of%203-yellow)
+![task](https://img.shields.io/badge/task-fine--grained%20classification-blue) ![dataset](https://img.shields.io/badge/dataset-CUB--200--2011-green) ![pretrained](https://img.shields.io/badge/pretrained%20weights-none-red) ![runs](https://img.shields.io/badge/CNN%20small-9%20of%209%20runs-green) ![large](https://img.shields.io/badge/CNN%20large-not%20started-lightgrey) ![seeds](https://img.shields.io/badge/seeds-1%20of%203-yellow)
 
 Round 01 ([`../01_strongaug_mixup_cutmix`](../01_strongaug_mixup_cutmix)) showed that both CNNs **memorize** their training photos: about 100 % right on them, 44 to 46 % on new ones. This round asks one question: **which training changes reduce that memorizing, without hurting accuracy?**
 
 It changes the base recipe (one augmentation at a time, no photo mixing), then tries one regularizer per run, and finally combines the ones that helped. The ViT and PatchVision-X will go through exactly the same round later, with the same settings, so the CNN-vs-ViT comparison stays fair.
 
-> **Jump to:** [Result in one minute](#1-the-result-in-one-minute) · [What changed](#2-what-changed-from-round-01) · [The plan](#3-the-plan-three-rounds-of-training) · [Results](#4-results-cnn-small) · [What we learned](#5-what-we-learned-cnn-small) · [Round 3: r8](#6-round-3-r8-the-winners-combined) · [CNN large](#7-cnn-large) · [Limits](#8-limits) · [Run it](#9-run-it-yourself)
+> **Jump to:** [Result in one minute](#1-the-result-in-one-minute) · [What changed](#2-what-changed-from-round-01) · [The plan](#3-the-plan-three-rounds-of-training) · [Results](#4-results-cnn-small) · [Did it improve?](#48-did-it-improve-final-model-vs-the-original) · [What we learned](#5-what-we-learned-cnn-small) · [Round 3: r8](#6-round-3-r8-the-winners-combined) · [CNN large](#7-cnn-large) · [Limits](#8-limits) · [Run it](#9-run-it-yourself)
 
 ---
 
@@ -16,24 +16,24 @@ It changes the base recipe (one augmentation at a time, no photo mixing), then t
 <tr>
 <td width="56%">
 
-**CNN small (4.22 M parameters)**, best single change against the new reference:
+**CNN small (4.22 M parameters)**: the original model, the new reference, the best single change and the final combined recipe:
 
 | Run | Val top-1 | **Test top-1** | Test top-5 | Gap |
 |---|---|---|---|---|
-| Round 01 recipe | 44.5 % | 43.65 % | 69.02 % | 54.7 pts |
+| Round 01 recipe (original) | 44.5 % | 43.65 % | 69.02 % | 54.7 pts |
 | r0 new reference | 44.67 % | 43.75 % | 69.69 % | 55.3 pts |
-| **r6 weight decay 0.2** | **48.00 %** | **47.43 %** | **73.39 %** | **52.3 pts** |
-| r8 combined | *pending* | *pending* | *pending* | *pending* |
+| r6 weight decay 0.2 | 48.00 % | 47.43 % | 73.39 % | 52.3 pts |
+| **r8 combined (final)** | **48.67 %** | **47.65 %** | **74.63 %** | **51.5 pts** |
 
 One seed (42), 5,794 unseen test photos, sampling noise about ±1.3 points.
 
 </td>
 <td>
 
-1. **Removing Mixup/CutMix changed accuracy by almost nothing** (43.65 → 43.75 %) but made the confidence numbers far more honest (calibration error 7.1 → 2.2 %).
-2. **Stronger weight decay is the clear winner**: +3.7 test points and the smallest memorizing gap of all runs. The paired test says the gain is real (p < 0.0001).
-3. **Label smoothing 0.2 and weight decay 0.1 also help**; drop-path above 0.2 hurts; SAM does nothing measurable here.
-4. **The gap moved, but did not close**: 52 points is still a lot of memorizing.
+1. **It improved: +4.0 test points over the original CNN small** (43.65 → 47.65 %), with 3.2 points less memorizing. On the same test photos the gain is far beyond chance (p ≈ 1e-12), and 132 of 200 species got better ([section 4.8](#48-did-it-improve-final-model-vs-the-original)).
+2. **Stronger weight decay did almost all of it**: alone it gives +3.7 test points. Combining it with label smoothing 0.2 and drop-path 0.2 (r8) adds only +0.2 more, which is not significant.
+3. **Removing Mixup/CutMix changed accuracy by almost nothing** (43.65 → 43.75 %) but made the confidence numbers far more honest (calibration error 7.1 → 2.2 %).
+4. **The gap moved, but did not close**: 51.5 points is still a lot of memorizing.
 
 </td>
 </tr>
@@ -110,7 +110,7 @@ Rules: **one seed (42)**; winners are picked on **validation only** (600 photos)
 | r5_wd0.1 | weight decay 0.05 → 0.1 | 231 | 46.67 % | +2.00 | 53.5 | 45.03 % | 69.66 % | 44.79 % | 6.09 % |
 | **r6_wd0.2** | weight decay 0.05 → 0.2 | 188 | **48.00 %** | **+3.33** | **52.3** | **47.43 %** | **73.39 %** | **47.02 %** | 3.87 % |
 | r7_sam | SAM optimizer (rho 0.05) | 113 | 44.83 % | +0.17 | 53.3 | 43.11 % | 71.11 % | 42.89 % | 1.98 % |
-| r8_combined | winners of r1 to r7 combined | *pending* | *pending* | | | | | | |
+| **r8_combined** | weight decay 0.2 + label smoothing 0.2 + drop-path 0.2 | 236 | **48.67 %** | **+4.00** | **51.5** | **47.65 %** | **74.63 %** | **47.46 %** | 14.27 % |
 
 *Gap = accuracy on augmentation-free training photos minus validation accuracy, at the chosen epoch. ECE = calibration error, lower is better. Every run: 300 epochs, about 31 minutes on the RTX 5090.*
 
@@ -125,6 +125,8 @@ Rules: **one seed (42)**; winners are picked on **validation only** (600 photos)
 | r5_wd0.1 vs r0_reference | +1.33 | 512 | 435 | 0.0135 | yes |
 | **r6_wd0.2 vs r0_reference** | **+3.71** | **518** | **303** | **< 0.0001** | **yes** |
 | r7_sam vs r0_reference | −0.62 | 469 | 505 | 0.2621 | no |
+| **r8_combined vs r0_reference** | **+3.94** | **595** | **367** | **< 0.0001** | **yes** |
+| r8_combined vs r6_wd0.2 | +0.22 | 460 | 447 | 0.6903 | no |
 
 This shows the differences are not caused by which test photos happened to be drawn. It does **not** show they survive a different random seed; that needs the three-seed runs.
 
@@ -132,7 +134,7 @@ This shows the differences are not caused by which test photos happened to be dr
 
 ![Gap vs accuracy](docs/figures/cnn_small_02_gap_vs_accuracy.png)
 
-The goal is **up and to the left**: more accurate *and* a smaller gap. Weight decay 0.2 is furthest in that direction. Drop-path 0.5 also has a smaller gap than r0, but only because it learns **less** overall (lower accuracy), which is not progress.
+The goal is **up and to the left**: more accurate *and* a smaller gap. The combined run r8 is furthest in that direction, with weight decay 0.2 alone close behind. Drop-path 0.5 also has a smaller gap than r0, but only because it learns **less** overall (lower accuracy), which is not progress.
 
 ### 4.4 How strong should each setting be?
 
@@ -150,7 +152,7 @@ The goal is **up and to the left**: more accurate *and* a smaller gap. Weight de
   <img src="docs/animations/cnn_small_race.gif" width="820" alt="Validation accuracy race of all round-02 runs for CNN small">
 </p>
 
-*The race: validation accuracy of every run over 300 epochs. Weight decay 0.2 (dark green) leads from about epoch 110 on. Drop-path 0.5 (dark blue) learns more slowly throughout.*
+*The race: validation accuracy of every run over 300 epochs. Weight decay 0.2 (dark green) leads from about epoch 110 on and the combined run r8 (red) joins it in the second half. Drop-path 0.5 (dark blue) learns more slowly throughout.*
 
 Every run still reaches about **100 % on the training photos** (middle panel); only drop-path 0.5 stays below, at 96 %. SAM's gap keeps growing late in training, which is why its best epoch (113) is so early.
 
@@ -158,11 +160,13 @@ Every run still reaches about **100 % on the training photos** (middle panel); o
 
 ![Calibration](docs/figures/cnn_small_05_calibration.png)
 
-Without Mixup/CutMix the reference is well calibrated (2.2 %). **Label smoothing 0.2 makes the model under-confident** (15.7 %): it is right more often than it says. Accuracy is unaffected, and this kind of error can be fixed after training with temperature scaling. Weight decay 0.2 stays well calibrated (3.9 %).
+Without Mixup/CutMix the reference is well calibrated (2.2 %). **Label smoothing 0.2 makes the model under-confident** (15.7 % in r4, 14.3 % in r8, which also uses it): it is right more often than it says. Accuracy is unaffected, and this kind of error can be fixed after training with temperature scaling. Weight decay 0.2 alone stays well calibrated (3.9 %).
 
 ### 4.7 Round 01 vs round 02
 
 ![Round 01 vs round 02](docs/figures/cnn_small_06_round01_vs_round02.png)
+
+*r6 (weight decay 0.2 alone) is shown beside the final r8: almost the same accuracy and gap, but much better calibrated, because r8's label smoothing 0.2 makes it under-confident.*
 
 <details>
 <summary><b>Each run's own plots, as saved by the trainer (click to open)</b></summary>
@@ -177,7 +181,11 @@ Without Mixup/CutMix the reference is well calibrated (2.2 %). **Label smoothing
 | r5_wd0.1 | [curves](results/cnn_small/r5_wd0.1/seed42/curves.png) | [confusion](results/cnn_small/r5_wd0.1/seed42/test_confusion_matrix.png) | [reliability](results/cnn_small/r5_wd0.1/seed42/test_reliability.png) |
 | r6_wd0.2 | [curves](results/cnn_small/r6_wd0.2/seed42/curves.png) | [confusion](results/cnn_small/r6_wd0.2/seed42/test_confusion_matrix.png) | [reliability](results/cnn_small/r6_wd0.2/seed42/test_reliability.png) |
 | r7_sam | [curves](results/cnn_small/r7_sam/seed42/curves.png) | [confusion](results/cnn_small/r7_sam/seed42/test_confusion_matrix.png) | [reliability](results/cnn_small/r7_sam/seed42/test_reliability.png) |
-| r8_combined | *pending* | *pending* | *pending* |
+| r8_combined | [curves](results/cnn_small/r8_combined/seed42/curves.png) | [confusion](results/cnn_small/r8_combined/seed42/test_confusion_matrix.png) | [reliability](results/cnn_small/r8_combined/seed42/test_reliability.png) |
+
+**The final recipe, r8 combined:**
+
+![r8 curves](results/cnn_small/r8_combined/seed42/curves.png)
 
 **The best single change, r6 weight decay 0.2:**
 
@@ -186,6 +194,26 @@ Without Mixup/CutMix the reference is well calibrated (2.2 %). **Label smoothing
 Full per-species tables, predictions for every test photo, per-epoch histories and logs are in `results/cnn_small/<run>/seed42/`. A one-line summary of every finished run is in [`results/cnn_small/queue_summary.csv`](results/cnn_small/queue_summary.csv).
 
 </details>
+
+### 4.8 Did it improve? Final model vs the original
+
+The final CNN small (r8) against the **original** CNN small from round 01, on the same 5,794 test photos:
+
+| | Original (round 01) | **Final (r8)** | Change |
+|---|---|---|---|
+| Test top-1 | 43.65 % | **47.65 %** | **+4.00** |
+| Test top-5 | 69.02 % | **74.63 %** | **+5.61** |
+| Test macro-F1 | 43.54 % | **47.46 %** | **+3.92** |
+| Validation top-1 | 44.50 % | **48.67 %** | +4.17 |
+| Overfitting gap | 54.7 pts | **51.5 pts** | **−3.2** (less memorizing) |
+| Lowest validation loss | 2.50 | **2.35** | better |
+| Calibration error (ECE) | **7.07 %** | 14.27 % | worse (label smoothing, see 4.6) |
+
+![Did it improve](docs/figures/cnn_small_07_did_it_improve.png)
+
+* **Photo by photo:** 655 test photos are right only with the new model and 422 only with the old one. The exact paired test gives p ≈ 1e-12, so the gain is not caused by which photos happened to be in the test set.
+* **Species by species:** 132 of 200 species improved, 63 got worse and 5 stayed the same; the typical (median) species gained 3.1 F1 points. Biggest gains: Myrtle Warbler (+26), Ringed Kingfisher (+24), White throated Sparrow (+21). Biggest losses: Common Raven (−14), Ruby throated Hummingbird (−14), Rock Wren (−13).
+* **What did not improve:** the model still gets 100 % of its training photos right, and its confidence is less honest than before. The second can be fixed after training (temperature scaling), or avoided by using r6 (weight decay 0.2 alone: 47.43 %, ECE 3.9 %).
 
 ---
 
@@ -196,30 +224,36 @@ Full per-species tables, predictions for every test photo, per-epoch histories a
 3. **Label smoothing 0.2 and weight decay 0.1 help too** (+1.6 and +1.3 test points, both significant).
 4. **Drop-path barely helps a small CNN.** 0.2 gains on validation but not on test (+0.09, not significant); 0.4 and 0.5 hurt.
 5. **SAM gave no measurable gain** (+0.17 validation = one photo; −0.62 test, not significant).
-6. **Memorizing is reduced, not solved.** The best gap is still 52 points: the CNN still gets about 100 % of training photos right.
+6. **The winners add up only a little.** r8 (weight decay 0.2 + label smoothing 0.2 + drop-path 0.2) is the best run on every accuracy measure, but only +0.2 test points above weight decay 0.2 alone (not significant), and it inherits label smoothing's under-confidence.
+7. **Memorizing is reduced, not solved.** The best gap is still 51.5 points: the CNN still gets about 100 % of training photos right.
 
 ---
 
 ## 6. Round 3: r8, the winners combined
 
-> **Status: pending.** This section will be filled in once r8 has run.
+> **Status: done for CNN small.** r8 is the final CNN small recipe.
 
-**Candidates** (better than r0 on validation, one value per setting):
+**What went into r8** (each setting's best value, if it beat r0 on validation by more than one photo):
 
-| Setting | Value for r8 | Validation gain alone |
-|---|---|---|
-| weight decay | **0.2** (better than 0.1) | +3.33 |
-| label smoothing | **0.2** | +2.17 |
-| drop-path | **0.2** (0.4 and 0.5 were worse) | +1.67 |
-| SAM | *open decision*: +0.17 on validation is one photo | +0.17 |
+| Setting | Value in r8 | Validation gain alone | In r8? |
+|---|---|---|---|
+| weight decay | **0.2** (better than 0.1) | +3.33 | yes |
+| label smoothing | **0.2** | +2.17 | yes |
+| drop-path | **0.2** (0.4 and 0.5 were worse) | +1.67 | yes |
+| SAM | – | +0.17 (one photo; −0.62 on test) | **no** |
 
-**Open decisions before r8 runs:**
-1. Leave SAM out (its gain is one validation photo)?
-2. Weight decay was still improving at 0.2, the largest value tried. Test a larger value first (e.g. 0.3 and 0.5), as an extra run for every model?
+The exact settings are in [`cnn/config.py`](cnn/config.py) (`COMBINED`) and in [`results/cnn_small/r8_combined/seed42/config.json`](results/cnn_small/r8_combined/seed42/config.json).
 
 | Run | Val top-1 | vs r0 | Gap | Test top-1 | Test top-5 | Test macro-F1 | Test ECE |
 |---|---|---|---|---|---|---|---|
-| r8_combined | *pending* | *pending* | *pending* | *pending* | *pending* | *pending* | *pending* |
+| r6_wd0.2 (best single change) | 48.00 % | +3.33 | 52.3 | 47.43 % | 73.39 % | 47.02 % | **3.87 %** |
+| **r8_combined** | **48.67 %** | **+4.00** | **51.5** | **47.65 %** | **74.63 %** | **47.46 %** | 14.27 % |
+
+**Reading it:**
+* By the rule of this study (best on validation), **r8 is the final CNN small recipe**: best validation, test top-1, top-5, macro-F1 and smallest gap of all nine runs.
+* The winners **add up only a little**: r8 is +0.22 test points above r6 alone, which is not significant (p = 0.69). Almost all of the gain comes from weight decay.
+* r8 is **under-confident** (ECE 14.3 %), a side effect of label smoothing 0.2. If honest confidence matters, r6 is the simpler alternative with nearly the same accuracy.
+* **Still open:** weight decay was improving at 0.2, the largest value tried, so a larger value (0.3, 0.5) might help more. Testing it would be an extra run for every model.
 
 ---
 
@@ -251,6 +285,7 @@ Run everything from inside this folder. The shared data is read from the reposit
 cd CNN_Baseline/02_autoaug_nomix_regularization
 python run_queue.py cnn_small                    # r0 ... r7 one after another, every step and epoch printed
 python train.py cnn_small r6_wd0.2 42            # a single run
+python run_queue.py cnn_small r8_combined        # the combined run (its settings are in cnn/config.py, COMBINED)
 python watch_training.py cnn_small r6_wd0.2 42   # live monitor, in a second terminal
 python docs/make_figures.py                      # rebuild every figure, animation and table on this page
 ```
@@ -285,7 +320,7 @@ CNN_Baseline/02_autoaug_nomix_regularization/
 ├── run_queue.py            several runs in one terminal (r0 ... r7 by default)
 ├── watch_training.py       live monitor
 ├── cnn/
-│   ├── config.py           base recipe, the run list (r0 ... r7) and their settings
+│   ├── config.py           base recipe, the run list (r0 ... r7), and each model's r8 winners (COMBINED)
 │   ├── model.py            the CNN, now with drop-path (stochastic depth)
 │   ├── engine.py           training / validation / test loop, now with the SAM step
 │   ├── experiment.py       one-batch dry run
