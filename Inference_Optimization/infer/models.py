@@ -18,7 +18,7 @@ import torch.nn as nn
 
 REPO = Path(__file__).resolve().parents[2]
 VIT_DIR = REPO / "ViT_PatchVisionX"
-CNN_DIR = REPO / "CNN_Baseline"
+CNN_DIR = REPO / "CNN_Baseline" / "01_strongaug_mixup_cutmix"
 for p in (VIT_DIR, CNN_DIR):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))

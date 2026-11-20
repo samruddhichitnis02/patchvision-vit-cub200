@@ -1,6 +1,6 @@
 ﻿"""
 Builds every figure, animation and table used by the top-level README.md from the FINISHED run files of both studies
-(ViT_PatchVisionX/results and CNN_Baseline/results).  Nothing is drawn by hand except the two architecture sketches.
+(ViT_PatchVisionX/results and CNN_Baseline/01_strongaug_mixup_cutmix/results).  Nothing is drawn by hand except the two architecture sketches.
 
     python assets/make_assets.py              # everything
     python assets/make_assets.py bars gap     # only the named parts (see PARTS at the bottom)
@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FIG, ANI, TAB = ROOT / "assets" / "figures", ROOT / "assets" / "animations", ROOT / "assets" / "tables"
 for d in (FIG, ANI, TAB):
     d.mkdir(parents=True, exist_ok=True)
-VIT, CNN = ROOT / "ViT_PatchVisionX" / "results", ROOT / "CNN_Baseline" / "results"
+VIT, CNN = ROOT / "ViT_PatchVisionX" / "results", ROOT / "CNN_Baseline" / "01_strongaug_mixup_cutmix" / "results"
 CUB = ROOT / "CUB_200_2011"
 SEED = 42
 

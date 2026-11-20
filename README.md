@@ -269,9 +269,9 @@ Six photos drawn at random from each group:
 
 **CNN small** training curves, confusion matrix and calibration:
 
-![CNN small curves](CNN_Baseline/results/cnn_small/seed42/curves.png)
-![CNN small confusion](CNN_Baseline/results/cnn_small/seed42/test_confusion_matrix.png)
-![CNN small calibration](CNN_Baseline/results/cnn_small/seed42/test_reliability.png)
+![CNN small curves](CNN_Baseline/01_strongaug_mixup_cutmix/results/cnn_small/seed42/curves.png)
+![CNN small confusion](CNN_Baseline/01_strongaug_mixup_cutmix/results/cnn_small/seed42/test_confusion_matrix.png)
+![CNN small calibration](CNN_Baseline/01_strongaug_mixup_cutmix/results/cnn_small/seed42/test_reliability.png)
 
 **PatchVision-X** flip test, EMA effect and attention over training:
 
@@ -279,7 +279,7 @@ Six photos drawn at random from each group:
 ![EMA effect](ViT_PatchVisionX/docs/figures/ema_effect.png)
 ![Attention over training](ViT_PatchVisionX/docs/animations/attention_over_training.gif)
 
-More figures: [`ViT_PatchVisionX/README.md`](ViT_PatchVisionX/README.md) and [`CNN_Baseline/README.md`](CNN_Baseline/README.md).
+More figures: [`ViT_PatchVisionX/README.md`](ViT_PatchVisionX/README.md) and [`CNN_Baseline/01_strongaug_mixup_cutmix/README.md`](CNN_Baseline/01_strongaug_mixup_cutmix/README.md).
 
 </details>
 
@@ -429,7 +429,7 @@ python train.py base 42
 python train.py full 42
 python train.py ovf1_droppath0.3 42
 
-# CNN (from inside CNN_Baseline/)
+# CNN (from inside CNN_Baseline/01_strongaug_mixup_cutmix/)
 python train.py cnn_small 42
 python train.py cnn_large 42
 
@@ -481,7 +481,7 @@ flowchart LR
 ### 10.1 Step 1: the baseline
 
 The timing numbers in [section 4.4](#44-cost) came from two different GPUs and two PyTorch versions, so they
-could not be compared. Step 1 re-measures everything on **one machine, with one method**.
+could not be compared. So here we again **re-measured** everything on **one machine, with one method**.
 
 | Setting | Value |
 |---|---|

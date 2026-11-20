@@ -1,9 +1,9 @@
 """
-Builds every figure and animation used by CNN_Baseline/README.md from the FINISHED CNN runs
-(CNN_Baseline/results/cnn_small and cnn_large). Nothing is drawn by hand except the architecture sketch.
+Builds every figure and animation used by CNN_Baseline/01_strongaug_mixup_cutmix/README.md from the FINISHED CNN runs
+(CNN_Baseline/01_strongaug_mixup_cutmix/results/cnn_small and cnn_large). Nothing is drawn by hand except the architecture sketch.
 The ViT numbers used as a dashed reference line are read from ViT_PatchVisionX/results/full.
 
-    python docs/make_figures.py              # everything     (run from inside CNN_Baseline/)
+    python docs/make_figures.py              # everything     (run from inside CNN_Baseline/01_strongaug_mixup_cutmix/)
     python docs/make_figures.py bars ema     # only the named parts (see PARTS at the bottom)
 
 Outputs: docs/figures/*.png   docs/animations/*.gif   docs/facts.txt (the numbers quoted in the README)
@@ -25,8 +25,8 @@ from matplotlib.animation import FuncAnimation, PillowWriter
 from matplotlib.patches import FancyBboxPatch, Rectangle
 from PIL import Image
 
-HERE = Path(__file__).resolve().parents[1]            # CNN_Baseline/
-ROOT = HERE.parent
+HERE = Path(__file__).resolve().parents[1]            # CNN_Baseline/01_strongaug_mixup_cutmix/
+ROOT = HERE.parents[1]
 FIG, ANI = HERE / "docs" / "figures", HERE / "docs" / "animations"
 FIG.mkdir(parents=True, exist_ok=True)
 ANI.mkdir(parents=True, exist_ok=True)

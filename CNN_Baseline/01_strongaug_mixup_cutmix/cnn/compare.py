@@ -21,7 +21,7 @@ _COLS = [("params_M", "params (M)"), ("GFLOPs", "GFLOPs"), ("test_acc1", "top-1 
 def default_entries(repo_root, seed: int = 42, include_trials: bool = False) -> List[Entry]:
     """The runs of both studies (only those that exist). Order = table order."""
     root = Path(repo_root)
-    vit, cnn = root / "ViT_PatchVisionX" / "results", root / "CNN_Baseline" / "results"
+    vit, cnn = root / "ViT_PatchVisionX" / "results", root / "CNN_Baseline" / "01_strongaug_mixup_cutmix" / "results"
     cand = [("CNN small (4.2M)", cnn / "cnn_small"), ("CNN large (11.3M)", cnn / "cnn_large"),
             ("ViT base", vit / "base"), ("PatchVision-X (full)", vit / "full")]
     if include_trials:
