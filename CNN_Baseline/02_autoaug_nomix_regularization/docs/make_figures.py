@@ -288,7 +288,11 @@ def fig_before_after(model, df):
              RUNS["r0_reference"][2]),
             ("Round 02 best\n" + RUNS[best][0].replace(" ", "\n", 1), d.loc[best, "test_top1"], d.loc[best, "test_top5"], d.loc[best, "test_f1"],
              d.loc[best, "gap"], d.loc[best, "test_ece"], RUNS[best][2])]
-    fig, ax = plt.subplots(1, 3, figsize=(13, 4.3))
+    if best == "r8_combined" and "r6_wd0.2" in d.index:          # the simpler alternative, shown beside the winner
+        cols.insert(2, ("Round 02 r6\nweight decay\n0.2 alone", d.loc["r6_wd0.2", "test_top1"],
+                        d.loc["r6_wd0.2", "test_top5"], d.loc["r6_wd0.2", "test_f1"], d.loc["r6_wd0.2", "gap"],
+                        d.loc["r6_wd0.2", "test_ece"], RUNS["r6_wd0.2"][2]))
+    fig, ax = plt.subplots(1, 3, figsize=(13.5, 4.3))
     x = np.arange(len(cols))
     for a, idx, title, fmt in ((ax[0], 1, "Test top-1, %", "{:.2f}"), (ax[1], 4, "Overfitting gap, points", "{:.1f}"),
                                (ax[2], 5, "Calibration error (ECE), %", "{:.1f}")):
@@ -305,6 +309,64 @@ def fig_before_after(model, df):
            "300 epochs")
     savefig(fig, f"{model}_06_round01_vs_round02.png")
     return o
+
+
+# ------------------------------------------------------------------------------------------------------------
+# 7. did it improve? final round-02 model vs the original round-01 model, photo by photo and species by species
+# ------------------------------------------------------------------------------------------------------------
+def fig_improvement(model, df):
+    old = R01 / model / "seed42"
+    if not (old / "test_predictions.csv").exists():
+        return None
+    best = df.loc[df.val_top1.idxmax(), "run"]
+    new = run_dir(model, best)
+    po = pd.read_csv(old / "test_predictions.csv").set_index("image_id")
+    pn = pd.read_csv(new / "test_predictions.csv").set_index("image_id").loc[po.index]
+    a, b = pn.pred == pn.label, po.pred == po.label
+    n10, n01 = int((a & ~b).sum()), int((~a & b).sum())
+    n, k = n10 + n01, min(n10, n01)
+    p = min(1.0, 2 * sum(comb(n, i) for i in range(k + 1)) / 2 ** n)
+    fo = pd.read_csv(old / "test_per_class.csv").set_index("class_name").f1
+    fn = pd.read_csv(new / "test_per_class.csv").set_index("class_name").f1.loc[fo.index]
+    dlt = (fn - fo).sort_values()
+    fig, ax = plt.subplots(1, 2, figsize=(13.5, 4.6), gridspec_kw={"width_ratios": [1, 1.6]})
+    a0 = ax[0]
+    cats = [("both right", int((a & b).sum()), "#bdbdbd"), ("only the NEW\nmodel right", n10, RUNS[best][2]),
+            ("only the OLD\nmodel right", n01, "#7f7f7f"), ("both wrong", int((~a & ~b).sum()), "#e0e0e0")]
+    yy = np.arange(len(cats))[::-1]
+    a0.barh(yy, [c[1] for c in cats], color=[c[2] for c in cats], height=0.6, edgecolor="white", linewidth=2)
+    for yi, c in zip(yy, cats):
+        a0.text(c[1] + 40, yi, f"{c[1]:,}", va="center", fontsize=10, color=INK)
+    a0.set_yticks(yy, [c[0] for c in cats])
+    a0.set_xlim(0, max(c[1] for c in cats) * 1.2)
+    a0.set_xlabel("test photos (5,794)")
+    a0.set_title(f"Photo by photo: {n10} vs {n01}, p = {p:.0e}", loc="left")
+    grid(a0, "x")
+    a1 = ax[1]
+    x = np.arange(len(dlt))
+    a1.bar(x, dlt.values, width=1.0, color=[RUNS[best][2] if v > 0 else "#7f7f7f" for v in dlt.values], lw=0)
+    a1.axhline(0, color=INK, lw=0.8)
+    a1.axhline(dlt.median(), color=RUNS[best][2], lw=1, ls="--")
+    a1.text(2, dlt.median() + 1, f"median species {dlt.median():+.1f}", fontsize=9, color=INK)
+    for name in list(dlt.index[-2:]):                                     # two biggest gains, at the right end
+        i = dlt.index.get_loc(name)
+        a1.annotate(f"{name} ({dlt[name]:+.0f})", (i, dlt[name]), xytext=(-6, -2), textcoords="offset points",
+                    ha="right", va="center", fontsize=8.5, color=INK)
+    lo = dlt.index[:2]                                                    # two biggest losses, one label
+    a1.text(4, dlt.min() + 0.5, "biggest losses: " + ", ".join(f"{n} ({dlt[n]:+.0f})" for n in lo), fontsize=8.5,
+            color=INK, va="center")
+    a1.set_ylim(dlt.min() - 3, dlt.max() + 3)
+    a1.set_xticks([])
+    a1.set_xlabel(f"200 species, sorted by change   ({int((dlt > 0).sum())} better, {int((dlt < 0).sum())} worse, "
+                  f"{int((dlt == 0).sum())} unchanged)")
+    a1.set_ylabel("F1 change, points")
+    a1.set_title("Species by species: test F1, new minus old", loc="left")
+    grid(a1, "y")
+    header(fig, f"{MODELS[model]}: did it improve? Round 02 {RUNS[best][0]} vs the original round-01 model",
+           "the same 5,794 test photos; p = exact paired test on the photos where the two models disagree")
+    savefig(fig, f"{model}_07_did_it_improve.png")
+    return {"best": best, "n10": n10, "n01": n01, "p": p, "better": int((dlt > 0).sum()),
+            "worse": int((dlt < 0).sum()), "median": float(dlt.median())}
 
 
 # ------------------------------------------------------------------------------------------------------------
@@ -398,5 +460,6 @@ if __name__ == "__main__":
         fig_curves(model, df, hist)
         fig_calibration(model, df)
         old = fig_before_after(model, df)
+        print("improvement vs round 01:", fig_improvement(model, df))
         gif_race(model, hist)
         tables(model, df, old)
