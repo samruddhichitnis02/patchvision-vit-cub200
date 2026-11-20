@@ -81,6 +81,15 @@ RUNS: Dict[str, Tuple[Dict[str, Any], Dict[str, Any]]] = {
 }
 
 
+# Round 3: r8_combined = the validation winners of r1-r7, chosen SEPARATELY for each model
+# (one value per setting; a change counts as a winner only if it beat r0 on validation by more than one photo).
+# cnn_small (chosen 2026-11-19): weight decay 0.2 (+3.33 val), label smoothing 0.2 (+2.17), drop-path 0.2 (+1.67).
+#   SAM left out: +0.17 val = one photo, -0.62 test (not significant). Weight decay 0.1 dropped: 0.2 was better.
+COMBINED: Dict[str, Tuple[Dict[str, Any], Dict[str, Any]]] = {
+    "cnn_small": ({"drop_path": 0.2}, {"weight_decay": 0.2, "label_smoothing": 0.2}),
+}
+
+
 def _build(cls, d: Dict[str, Any]):
     names = {f.name for f in fields(cls)}
     return cls(**{k: (tuple(v) if isinstance(v, list) else v) for k, v in d.items() if k in names})
@@ -92,6 +101,13 @@ def get_experiment(model: str, run: str, seed: int = 42, model_overrides: Option
     A run not in RUNS (e.g. r8_combined) can be built by passing its overrides explicitly."""
     if model not in MODELS:
         raise KeyError(f"unknown model {model!r}. Available: {list(MODELS)}")
+    if run == "r8_combined":
+        if model not in COMBINED:
+            raise KeyError(f"r8_combined for {model} is not defined yet: pick its winners from r1-r7 first")
+        m_run, t_run = copy.deepcopy(COMBINED[model])
+        return CNNExperiment(name=f"{model}/{run}", seed=seed,
+                             model=_build(CNNConfig, {**MODELS[model], **m_run, **(model_overrides or {})}),
+                             train=_build(CNNTrainConfig, {**BASE_TRAIN, **t_run, **(train_overrides or {})}))
     m_run, t_run = copy.deepcopy(RUNS.get(run, ({}, {})))
     if run not in RUNS and not (model_overrides or train_overrides):
         raise KeyError(f"unknown run {run!r}. Available: {list(RUNS)} (or pass overrides)")
