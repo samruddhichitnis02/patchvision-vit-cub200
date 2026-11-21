@@ -1,0 +1,19 @@
+final runs: small r8_combined, large r6_wd0.2
+CNN small r8_combined: val 48.67 test 47.65 top5 74.63 f1 47.46 gap 51.5 ece 14.27 best epoch 236 train 31.1 min 6.2 s/ep
+CNN large r6_wd0.2: val 50.50 test 50.28 top5 73.85 f1 49.92 gap 50.0 ece 12.62 best epoch 211 train 31.9 min 6.4 s/ep
+final large vs final small: only large right 570, only small right 417, p=1.25e-06, both right 2344, both wrong 2463
+cnn_small: final vs round01 n10 655 n01 422 p 1.3e-12; r0 vs round01 n10 533 n01 528 p 0.90; round01 test 43.65 top5 69.02 f1 43.54 gap 54.7 ece 7.07 val 44.50
+cnn_large: final vs round01 n10 651 n01 393 p 1.3e-15; r0 vs round01 n10 517 n01 506 p 0.75; round01 test 45.86 top5 71.16 f1 45.79 gap 53.3 ece 8.56 val 46.67
+r0 large vs r0 small: 547 vs 413, p=1.71e-05
+CNN small r8_combined: lowest val loss 2.35 @ epoch 164, final 2.48; best epoch 236; clean train at end 100.0; EMA-raw mean ep>=50 +2.40
+CNN large r6_wd0.2: lowest val loss 2.24 @ epoch 138, final 2.60; best epoch 211; clean train at end 100.0; EMA-raw mean ep>=50 +3.99
+large better on 132 species, small better on 66, tied 2; median large-small +2.7
+biggest large wins: Black throated Blue Warbler (+17), Louisiana Waterthrush (+15), Mockingbird (+15)
+biggest small wins: Cape May Warbler (-17), Indigo Bunting (-17), Boat tailed Grackle (-16)
+CNN small hardest 5: Shiny Cowbird (11), Western Wood Pewee (11), Least Flycatcher (13), Brewer Blackbird (14), Mockingbird (14)
+CNN small easiest 5: Painted Bunting (85), Pileated Woodpecker (85), Red headed Woodpecker (81), Downy Woodpecker (81), Magnolia Warbler (81)
+CNN large hardest 5: Least Flycatcher (4), Fish Crow (11), Western Wood Pewee (12), Orange crowned Warbler (19), Herring Gull (20)
+CNN large easiest 5: Green Violetear (88), Painted Bunting (87), Pileated Woodpecker (85), Red headed Woodpecker (83), Red bellied Woodpecker (82)
+CNN small top mix-ups: American Crow -> Fish Crow (11); Western Wood Pewee -> Olive sided Flycatcher (10); Great Grey Shrike -> Loggerhead Shrike (9); Artic Tern -> Common Tern (9); Eared Grebe -> Horned Grebe (9)
+CNN large top mix-ups: Western Wood Pewee -> Olive sided Flycatcher (9); Indigo Bunting -> Blue Grosbeak (8); Caspian Tern -> Elegant Tern (7); Least Tern -> Forsters Tern (7); Whip poor Will -> Chuck will Widow (7)
+of the 12 sample photos: small right on 7, large right on 6
