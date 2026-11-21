@@ -240,7 +240,7 @@ Each run changes **one** setting on top of r0.
 All values are in %. Gap = clean training top-1 minus validation top-1. ECE = expected calibration error on test.
 
 - **Best so far:** r6 (weight decay 0.2), **50.28 % test top-1**. That is +4.25 over r0 (p ≈ 5e-18, exact McNemar test) and +4.4 over round 01 (45.86 %; p ≈ 1e-15).
-- **Against round 01, photo by photo,** r6 gets 651 test photos newly right and 393 newly wrong. 130 of 200 species improved, 44 got worse.
+- **Against round 01, photo by photo,** r6 gets 651 test photos newly right and 393 newly wrong. By test F1, 138 of 200 species improved, 59 got worse and 3 stayed the same.
 - **Candidates for r8**, using the same rule as CNN small (beat r0 on validation by more than one photo): weight decay 0.2, label smoothing 0.2, SAM, drop-path 0.2. This section is updated once r8 is run.
 - **Label smoothing 0.2** makes the model under-confident (ECE 23 %). Temperature scaling after training can fix this without changing accuracy.
 
