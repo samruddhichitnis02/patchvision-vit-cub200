@@ -1,6 +1,6 @@
 # CNN round 02: `auto` augmentation, no Mixup/CutMix, and a regularization search
 
-![task](https://img.shields.io/badge/task-fine--grained%20classification-blue) ![dataset](https://img.shields.io/badge/dataset-CUB--200--2011-green) ![pretrained](https://img.shields.io/badge/pretrained%20weights-none-red) ![models](https://img.shields.io/badge/models-2%20CNNs-orange) ![small](https://img.shields.io/badge/CNN%20small-9%20of%209%20runs-green) ![large](https://img.shields.io/badge/CNN%20large-8%20of%209%20runs-yellowgreen) ![seeds](https://img.shields.io/badge/seeds-1%20of%203-yellow)
+![task](https://img.shields.io/badge/task-fine--grained%20classification-blue) ![dataset](https://img.shields.io/badge/dataset-CUB--200--2011-green) ![pretrained](https://img.shields.io/badge/pretrained%20weights-none-red) ![models](https://img.shields.io/badge/models-2%20CNNs-orange) ![small](https://img.shields.io/badge/CNN%20small-9%20of%209%20runs-green) ![large](https://img.shields.io/badge/CNN%20large-9%20of%209%20runs-green) ![seeds](https://img.shields.io/badge/seeds-1%20of%203-yellow)
 
 Round 01 ([`../01_strongaug_mixup_cutmix`](../01_strongaug_mixup_cutmix)) trained two ResNet-style CNNs **from scratch** on 5,394 photos (about 27 per species) and found that both **memorize** their training photos: about 100 % right on them, 44 to 46 % on new ones. This round asks one question, for **both** CNNs: **which training changes reduce that memorizing, without hurting accuracy?**
 
@@ -19,18 +19,18 @@ It changes the base recipe (one augmentation at a time, no photo mixing), then t
 | Model | Params | GFLOPs | Round 01 | **Round 02 final** | Test top-5 | Macro-F1 | Gap |
 |---|---|---|---|---|---|---|---|
 | **CNN small** (r8 combined) | 4.22 M | 1.40 | 43.65 % | **47.65 %** | 74.63 % | 47.46 % | 51.5 pts |
-| **CNN large** (r6 weight decay 0.2)* | 11.28 M | 3.63 | 45.86 % | **50.28 %** | 73.85 % | 49.92 % | 50.0 pts |
+| **CNN large** (r8 combined)* | 11.28 M | 3.63 | 45.86 % | **51.52 %** | 76.46 % | 51.53 % | 50.2 pts |
 
 Test top-1 unless stated. One seed (42), 5,794 unseen test photos, sampling noise about ±1.3 points. "Final" = the run with the best **validation** accuracy.
 
-\* CNN large's r8 (its winners combined) has not been run yet, so its best run so far, r6, stands in for it.
+\* CNN large's r8 and r6 tie on validation (50.50 %, 303 of 600 photos each). The tie goes to r8, the planned combined recipe; it is also 1.2 test points better (p = 0.016). See [section 8](#8-round-3-r8-the-winners-combined).
 
 </td>
 <td>
 
-1. **Both CNNs improved by about 4 points**: CNN small +4.0, CNN large +4.4 over round 01. On the same test photos both gains are far beyond chance (p ≈ 1e-12 and 1e-15).
+1. **Both CNNs improved**: CNN small +4.0, CNN large +5.7 test points over round 01. On the same test photos both gains are far beyond chance (p ≈ 1e-12 and 1e-26).
 2. **The same change did it for both: weight decay 0.2** (+3.7 and +4.3 test points alone). Removing Mixup/CutMix on its own changed accuracy by almost nothing.
-3. **CNN large is still the better CNN**, by 2.6 points (significant, p ≈ 1e-6), at 2.7× the parameters and 2.6× the compute. The lead grew a little (2.2 points in round 01).
+3. **CNN large is still the better CNN**, by 3.9 points (significant, p ≈ 1e-13), at 2.7× the parameters and 2.6× the compute. The lead grew (2.2 points in round 01).
 4. **The gap moved, but did not close**: both still get about 100 % of their training photos right, with a 50 to 52 point gap.
 
 </td>
@@ -145,9 +145,9 @@ Every run, CNN small next to CNN large. Both models get exactly the same change 
 | r5_wd0.1 | weight decay 0.05 → 0.1 | 46.67 % | 47.67 % | 45.03 % | 47.89 % | **+2.86** | 561 / 396 | 1.1e-7 |
 | r6_wd0.2 | weight decay 0.05 → 0.2 | 48.00 % | **50.50 %** | 47.43 % | **50.28 %** | **+2.85** | 540 / 374 | 4.4e-8 |
 | r7_sam | SAM optimizer (rho 0.05) | 44.83 % | 47.33 % | 43.11 % | 46.82 % | **+3.71** | 553 / 336 | 3.3e-13 |
-| r8_combined | the model's own winners (section 8) | **48.67 %** | *pending* | **47.65 %** | *pending* | | | |
+| r8_combined | the model's own winners (section 8) | **48.67 %** | **50.50 %** | **47.65 %** | **51.52 %** | **+3.87** | 558 / 334 | 6.1e-14 |
 
-**CNN large wins every single run**, by 2.3 to 3.7 test points, and every one of those wins is significant on the same test photos. Its lead is biggest where training is hardest for the small model (drop-path 0.5, SAM).
+**CNN large wins every single run**, by 2.3 to 3.9 test points, and every one of those wins is significant on the same test photos. Its lead is biggest with r8 (its winners include SAM) and where training is hardest for the small model (drop-path 0.5, SAM).
 
 ### 5.2 Memorizing, calibration and other measures, run by run
 
@@ -159,12 +159,12 @@ Every run, CNN small next to CNN large. Both models get exactly the same change 
 | r3_droppath0.5 | 53.7 | 56.7 | 1.80 % | 1.99 % | 67.79 % | 70.42 % | 39.98 % | 43.71 % | 231 | 276 |
 | r4_labelsmooth0.2 | 54.2 | 52.0 | 15.71 % | 23.01 % | 70.02 % | 71.56 % | 44.75 % | 47.47 % | 227 | 237 |
 | r5_wd0.1 | 53.5 | 52.8 | 6.09 % | 9.86 % | 69.66 % | 71.97 % | 44.79 % | 47.49 % | 231 | 199 |
-| r6_wd0.2 | 52.3 | **50.0** | 3.87 % | 12.62 % | 73.39 % | 73.85 % | 47.02 % | **49.92 %** | 188 | 211 |
+| r6_wd0.2 | 52.3 | **50.0** | 3.87 % | 12.62 % | 73.39 % | 73.85 % | 47.02 % | 49.92 % | 188 | 211 |
 | r7_sam | 53.3 | 52.7 | 1.98 % | 4.64 % | 71.11 % | 71.80 % | 42.89 % | 46.60 % | 113 | 150 |
-| r8_combined | **51.5** | *pending* | 14.27 % | *pending* | **74.63 %** | *pending* | 47.46 % | *pending* | 236 | *pending* |
+| r8_combined | **51.5** | 50.2 | 14.27 % | 16.39 % | **74.63 %** | **76.46 %** | **47.46 %** | **51.53 %** | 236 | 188 |
 
-* **Gap:** CNN large memorizes slightly less in 7 of 8 runs (the exception is drop-path 0.5). The difference is small, 0.2 to 2.3 points: having 2.7× the weights does not make the larger CNN memorize more.
-* **Calibration:** CNN large is less well calibrated in every run (higher ECE), and the settings that make a model under-confident (label smoothing 0.2, weight decay 0.1 / 0.2) affect it much more (weight decay 0.2: 12.6 % vs 3.9 %).
+* **Gap:** CNN large memorizes slightly less in 8 of 9 runs (the exception is drop-path 0.5). The difference is small, 0.2 to 2.3 points: having 2.7× the weights does not make the larger CNN memorize more.
+* **Calibration:** CNN large is less well calibrated in every run (higher ECE), and the settings that make a model under-confident (label smoothing 0.2, weight decay 0.1 / 0.2) affect it much more (weight decay 0.2: 12.6 % vs 3.9 %; r8: 16.4 % vs 14.3 %).
 * **Top-5 and macro-F1** follow top-1: CNN large is ahead in every run.
 
 *Gap = accuracy on augmentation-free training photos minus validation accuracy, at the chosen epoch (points). ECE = calibration error, lower is better. Every run: 300 epochs, about 31 to 32 minutes on the RTX 5090. Per-model tables: [`docs/tables/`](docs/tables).*
@@ -182,7 +182,7 @@ Each run against its own model's r0, on the 5,794 test photos:
 | r5 weight decay 0.1 | +1.33 | 512 / 435 | **0.014** | +1.86 | 429 / 321 | **0.0001** |
 | **r6 weight decay 0.2** | **+3.71** | 518 / 303 | **< 0.0001** | **+4.26** | 534 / 287 | **< 0.0001** |
 | r7 SAM | −0.62 | 469 / 505 | 0.26 | +0.81 | 418 / 371 | 0.10 |
-| r8 combined | +3.94 | 595 / 367 | **< 0.0001** | *pending* | | |
+| **r8 combined** | **+3.94** | 595 / 367 | **< 0.0001** | **+5.49** | 594 / 276 | **< 0.0001** |
 
 Bold p = significant at 5 %. This shows the differences are not caused by which test photos happened to be drawn. It does **not** show they survive a different random seed; that needs the three-seed runs. Tables: [`docs/tables/`](docs/tables).
 
@@ -203,7 +203,7 @@ The goal is **up and to the left**: more accurate *and* a smaller gap.
 |---|---|
 | ![Gap vs accuracy, CNN small](docs/figures/cnn_small_02_gap_vs_accuracy.png) | ![Gap vs accuracy, CNN large](docs/figures/cnn_large_02_gap_vs_accuracy.png) |
 
-For both models, weight decay 0.2 is furthest up and left (for CNN small together with r8). Drop-path 0.5 shrinks the gap for CNN small only because it learns **less** overall, which is not progress; for CNN large it even makes the gap bigger.
+For both models, weight decay 0.2 and r8 are furthest up and left. Drop-path 0.5 shrinks the gap for CNN small only because it learns **less** overall, which is not progress; for CNN large it even makes the gap bigger.
 
 ### 5.6 How strong should each setting be?
 
@@ -223,11 +223,11 @@ The same picture for both models:
 ![Training curves, both models](docs/figures/compare_03_training_curves.png)
 
 What the six panels show (solid = each model's final run, dotted = its r0 reference):
-* **Validation loss (top left):** with weight decay, both final runs reach a lower minimum than their r0 (CNN small 2.35 at epoch 164, CNN large 2.24 at epoch 138) and rise less afterwards.
-* **Validation top-1 (top middle):** CNN large is ahead of CNN small throughout. Both final runs keep climbing until epoch 200+ (chosen epochs 236 and 211), later than their r0 (185 and 165).
-* **Training photos (top right) and gap (bottom left):** every run still reaches **100 %** on the training photos. CNN small's r8 gets there more slowly (its regularizers slow the memorizing down), but in the end its gap is only a few points smaller than r0's.
-* **Training loss (bottom middle):** r8's training loss stays high because label smoothing 0.2 makes the targets softer, not because it learns less.
-* **EMA (bottom right):** evaluating the averaged weights instead of the latest ones is worth up to 8 points in the middle of training (on average +2.4 for CNN small and +4.0 for CNN large after epoch 50). By the end, when the learning rate is tiny, the two are the same.
+* **Validation loss (top left):** with weight decay, both final runs reach a lower minimum than their r0 (CNN small 2.35 at epoch 164, CNN large 2.27 at epoch 139) and rise less afterwards.
+* **Validation top-1 (top middle):** CNN large is ahead of CNN small throughout. Both final runs keep climbing until epoch 200+ (chosen epochs 236 and 188), later than their r0 (185 and 165).
+* **Training photos (top right) and gap (bottom left):** every run still reaches **100 %** on the training photos. Both r8 runs get there more slowly (their regularizers slow the memorizing down), but in the end their gap is only about 4 points smaller than r0's.
+* **Training loss (bottom middle):** the r8 training loss stays high because label smoothing 0.2 makes the targets softer, not because it learns less.
+* **EMA (bottom right):** evaluating the averaged weights instead of the latest ones is worth up to 8 points in the middle of training (on average +2.4 for CNN small and +2.5 for CNN large after epoch 50). By the end, when the learning rate is tiny, the two are the same.
 
 ![Training race](docs/animations/compare_race.gif)
 
@@ -256,39 +256,38 @@ The run-by-run overviews (validation and test top-1 of every run against r0):
 
 The final run of each model, all on the same test photos:
 
-| | `cnn_small` (r8 combined) | `cnn_large` (r6 weight decay 0.2)* |
+| | `cnn_small` (r8 combined) | `cnn_large` (r8 combined) |
 |---|---|---|
-| **Test top-1** | 47.65 % | **50.28 %** |
-| Test top-5 | **74.63 %** | 73.85 % |
-| Test macro-F1 | 47.46 % | **49.92 %** |
+| Winners combined | weight decay 0.2 + label smoothing 0.2 + drop-path 0.2 | weight decay 0.2 + label smoothing 0.2 + drop-path 0.2 + **SAM** |
+| **Test top-1** | 47.65 % | **51.52 %** |
+| Test top-5 | 74.63 % | **76.46 %** |
+| Test macro-F1 | 47.46 % | **51.53 %** |
 | Validation top-1 at the chosen epoch | 48.67 % | **50.50 %** |
-| Calibration error (ECE, lower is better) | 14.27 % | **12.62 %** |
-| Memorizing gap (clean-train minus validation) | 51.5 pts | **50.0 pts** |
-| Chosen epoch / epochs run | 236 / 300 | 211 / 300 |
-| Training time (RTX 5090) | 31.1 min | 31.9 min |
-| Time per epoch | 6.2 s | 6.4 s |
+| Calibration error (ECE, lower is better) | **14.27 %** | 16.39 % |
+| Memorizing gap (clean-train minus validation) | 51.5 pts | **50.2 pts** |
+| Chosen epoch / epochs run | 236 / 300 | 188 / 300 |
+| Training time (RTX 5090) | 31.1 min | 31.4 min |
+| Time per epoch | 6.2 s | 6.3 s |
 | Inference, 1 photo (RTX 5090) | 1.54 ms | 1.49 ms |
 
-\* until CNN large's r8 is run.
-
-`cnn_large` wins on top-1, macro-F1, gap and calibration; `cnn_small` is slightly ahead on top-5. Both take the same time per epoch because data loading, not the network, limits speed at this size. Proper speed measurements are in [`../../Inference_Optimization`](../../Inference_Optimization).
+`cnn_large` wins on top-1, top-5, macro-F1 and gap; `cnn_small` is better calibrated. Both take the same time per epoch because data loading, not the network, limits speed at this size. Proper speed measurements are in [`../../Inference_Optimization`](../../Inference_Optimization).
 
 ### 7.2 Is CNN large really better? Paired test
 
 | Comparison | Large minus small | Only large right | Only small right | p |
 |---|---|---|---|---|
 | r0 vs r0 (same recipe) | +2.28 | 547 | 413 | **1.7e-5** |
-| final vs final | **+2.63** | 570 | 417 | **1.3e-6** |
+| final vs final (r8 vs r8) | **+3.87** | 558 | 334 | **6.1e-14** |
 
-Over all 5,794 test photos, the two final models are both right on **2,344** and both wrong on **2,463**. The larger model's lead is real and stays at 2 to 3 points whatever the recipe.
+Over all 5,794 test photos, the two final models are both right on **2,427** and both wrong on **2,475**. The larger model's lead is real: 2 to 4 points whatever the recipe, and largest for the final recipes.
 
 ### 7.3 Are the confidence numbers honest?
 
 ![Calibration, both models](docs/figures/compare_04_calibration.png)
 
-Both final models sit **above** the diagonal, meaning **under-confident**: they are right more often than they say. On average CNN small's r8 says 33 % but is right 48 % of the time; CNN large's r6 says 38 % but is right 50 % of the time.
+Both final models sit **above** the diagonal, meaning **under-confident**: they are right more often than they say. On average CNN small's r8 says 33 % but is right 48 % of the time; CNN large's r8 says 35 % but is right 52 % of the time.
 * For CNN small this comes from **label smoothing 0.2** (r6, weight decay alone, is well calibrated: ECE 3.9 %).
-* For CNN large, **weight decay 0.2 alone already does it** (ECE 12.6 %; its r0 was 4.7 %).
+* For CNN large, **weight decay 0.2 alone already does it** (r6: ECE 12.6 %; its r0 was 4.7 %), and label smoothing 0.2 on top makes it worse (r8: 16.4 %).
 
 Accuracy is unaffected, and this kind of error can be fixed after training with temperature scaling.
 
@@ -304,20 +303,20 @@ Accuracy is unaffected, and this kind of error can be fixed after training with 
 
 ![Species, small vs large](docs/figures/compare_05_species.png)
 
-* **CNN large has the higher F1 on 132 of 200 species**, CNN small on 66, with 2 ties. The typical species is 2.7 F1 points better with the larger model.
-* **Easiest species** have a distinctive colour or pattern, for both models: Painted Bunting (F1 85 / 87), Pileated Woodpecker (85 / 85), Red headed Woodpecker (81 / 83).
-* **Hardest species** are plain look-alikes: flycatchers, pewees, cowbirds, blackbirds and crows. Least Flycatcher (13 / 4) and Western Wood Pewee (11 / 12) are near the bottom for both.
-* **Biggest differences:** CNN large is much better on Black throated Blue Warbler, Louisiana Waterthrush and Mockingbird (+15 to +17); CNN small is much better on Cape May Warbler, Indigo Bunting and Boat tailed Grackle (−16 to −17). With 30 test photos per species, single-species differences like these are noisy.
+* **CNN large has the higher F1 on 150 of 200 species**, CNN small on 48, with 2 ties. The typical species is 3.8 F1 points better with the larger model.
+* **Easiest species** have a distinctive colour or pattern, for both models: Painted Bunting (F1 85 / 85), Pileated Woodpecker (85 / 87), Red headed Woodpecker (81 / 86).
+* **Hardest species** are plain look-alikes: flycatchers, pewees, cowbirds, blackbirds and crows. Western Wood Pewee (11 / 16) and Least Flycatcher (13 / 17) are near the bottom for both; for CNN large the two crows are the hardest (Fish Crow 11, American Crow 12).
+* **Biggest differences:** CNN large is much better on Philadelphia Vireo, Winter Wren and Lazuli Bunting (+19 to +29); CNN small is better on House Sparrow, American Crow and Red legged Kittiwake (−10 to −13). With 30 test photos per species, single-species differences like these are noisy.
 
 ### 7.5 What do the models confuse?
 
 ![Confusions](docs/figures/compare_06_confusions.png)
 
-The mix-ups are what a human birder would struggle with too: **Western Wood Pewee → Olive sided Flycatcher** (top two for both models), **American Crow → Fish Crow**, **Arctic / Least / Caspian Tern ↔ Common / Forster's / Elegant Tern**, **Eared Grebe → Horned Grebe**, **Whip poor Will ↔ Chuck will Widow**, **Indigo Bunting → Blue Grosbeak**.
+The mix-ups are what a human birder would struggle with too: **American Crow → Fish Crow** (the top mix-up for both models), **Western Wood Pewee → Olive sided Flycatcher** (top three for both), **Arctic Tern → Common Tern**, **Great Grey Shrike → Loggerhead Shrike**, **Eared Grebe → Horned Grebe** (CNN small), **Tree Sparrow → House Sparrow**, **Herring Gull → California Gull**, **Vermilion Flycatcher → Scarlet Tanager** (CNN large).
 
 ### 7.6 Sample predictions
 
-Twelve test photos spread evenly through the test set (**not hand-picked**). Green = correct, red = wrong. On these 12, `cnn_small` is right on 7 and `cnn_large` on 6, which shows how little a dozen photos can tell you; over all 5,794, CNN large is 2.6 points ahead.
+Twelve test photos spread evenly through the test set (**not hand-picked**). Green = correct, red = wrong. On these 12, both models are right on 7, which shows how little a dozen photos can tell you; over all 5,794, CNN large is 3.9 points ahead.
 
 ![Samples](docs/figures/compare_07_samples.png)
 
@@ -336,7 +335,7 @@ Twelve test photos spread evenly through the test set (**not hand-picked**). Gre
 | r5_wd0.1 | [curves](results/cnn_small/r5_wd0.1/seed42/curves.png) · [confusion](results/cnn_small/r5_wd0.1/seed42/test_confusion_matrix.png) · [reliability](results/cnn_small/r5_wd0.1/seed42/test_reliability.png) | [curves](results/cnn_large/r5_wd0.1/seed42/curves.png) · [confusion](results/cnn_large/r5_wd0.1/seed42/test_confusion_matrix.png) · [reliability](results/cnn_large/r5_wd0.1/seed42/test_reliability.png) |
 | r6_wd0.2 | [curves](results/cnn_small/r6_wd0.2/seed42/curves.png) · [confusion](results/cnn_small/r6_wd0.2/seed42/test_confusion_matrix.png) · [reliability](results/cnn_small/r6_wd0.2/seed42/test_reliability.png) | [curves](results/cnn_large/r6_wd0.2/seed42/curves.png) · [confusion](results/cnn_large/r6_wd0.2/seed42/test_confusion_matrix.png) · [reliability](results/cnn_large/r6_wd0.2/seed42/test_reliability.png) |
 | r7_sam | [curves](results/cnn_small/r7_sam/seed42/curves.png) · [confusion](results/cnn_small/r7_sam/seed42/test_confusion_matrix.png) · [reliability](results/cnn_small/r7_sam/seed42/test_reliability.png) | [curves](results/cnn_large/r7_sam/seed42/curves.png) · [confusion](results/cnn_large/r7_sam/seed42/test_confusion_matrix.png) · [reliability](results/cnn_large/r7_sam/seed42/test_reliability.png) |
-| r8_combined | [curves](results/cnn_small/r8_combined/seed42/curves.png) · [confusion](results/cnn_small/r8_combined/seed42/test_confusion_matrix.png) · [reliability](results/cnn_small/r8_combined/seed42/test_reliability.png) | *not run yet* |
+| r8_combined | [curves](results/cnn_small/r8_combined/seed42/curves.png) · [confusion](results/cnn_small/r8_combined/seed42/test_confusion_matrix.png) · [reliability](results/cnn_small/r8_combined/seed42/test_reliability.png) | [curves](results/cnn_large/r8_combined/seed42/curves.png) · [confusion](results/cnn_large/r8_combined/seed42/test_confusion_matrix.png) · [reliability](results/cnn_large/r8_combined/seed42/test_reliability.png) |
 
 Full per-species tables, predictions for every test photo, per-epoch histories and logs are in `results/<model>/<run>/seed42/`. A one-line summary of every finished run is in [`results/cnn_small/queue_summary.csv`](results/cnn_small/queue_summary.csv) and [`results/cnn_large/queue_summary.csv`](results/cnn_large/queue_summary.csv).
 
@@ -368,14 +367,20 @@ Each setting's best value goes into r8 if it beat that model's own r0 on validat
 
 The exact settings are in [`cnn/config.py`](cnn/config.py) (`COMBINED`) and in [`results/cnn_small/r8_combined/seed42/config.json`](results/cnn_small/r8_combined/seed42/config.json).
 
-### CNN large: not run yet
+### CNN large: done
 
-> **Status: pending.** CNN large's r8 will combine **weight decay 0.2 + label smoothing 0.2 + drop-path 0.2 + SAM**. Unlike CNN small, SAM qualifies here. Until it is run, r6 (weight decay 0.2, 50.28 % test) is CNN large's best run and stands in for its final model everywhere on this page.
+CNN large's r8 combines **weight decay 0.2 + label smoothing 0.2 + drop-path 0.2 + SAM**. Unlike CNN small, SAM qualifies here.
 
 | Run | Val top-1 | vs r0 | Gap | Test top-1 | Test top-5 | Test macro-F1 | Test ECE |
 |---|---|---|---|---|---|---|---|
-| r6_wd0.2 (best single change) | 50.50 % | +4.67 | 50.0 | 50.28 % | 73.85 % | 49.92 % | 12.62 % |
-| r8_combined | *pending* | | | | | | |
+| r6_wd0.2 (best single change) | **50.50 %** | +4.67 | **50.0** | 50.28 % | 73.85 % | 49.92 % | **12.62 %** |
+| **r8_combined** | **50.50 %** | **+4.67** | 50.2 | **51.52 %** | **76.46 %** | **51.53 %** | 16.39 % |
+
+* **r8 and r6 tie on validation** (303 of 600 photos each). The tie goes to r8, the recipe this round planned as the final one, so **r8 is the final CNN large recipe** (the same choice as for CNN small).
+* Here the winners **do add up on test**: r8 is +1.24 points above r6 alone (459 vs 388 photos, p = 0.016), and +5.49 above r0. Validation (600 photos) could not see this difference.
+* r8 is **more under-confident** (ECE 16.4 %), from label smoothing 0.2 on top of weight decay 0.2. If honest confidence matters, r6 is the simpler alternative, 1.2 points less accurate.
+
+The exact settings are in [`cnn/config.py`](cnn/config.py) (`COMBINED`) and in [`results/cnn_large/r8_combined/seed42/config.json`](results/cnn_large/r8_combined/seed42/config.json).
 
 **Still open, for both models:** weight decay was improving at 0.2, the largest value tried, so a larger value (0.3, 0.5) might help more. Testing it would be an extra run for every model.
 
@@ -387,9 +392,9 @@ The exact settings are in [`cnn/config.py`](cnn/config.py) (`COMBINED`) and in [
 2. **Weight decay was the most under-tuned setting, for both models.** Round 01 used 0.05 (the ViT's value); 0.2 gives +3.7 (small) and +4.3 (large) test points, and the smallest gap. It helps the larger model more.
 3. **Label smoothing 0.2 and weight decay 0.1 help too**, for both models (+1.3 to +1.9 test points, all significant).
 4. **Drop-path barely helps a CNN with 8 blocks.** 0.2 is not significant on test for either model; 0.4 and 0.5 hurt both.
-5. **SAM gave no measurable gain on test** for either model (−0.6 and +0.8, neither significant), though it passed the validation bar for CNN large.
-6. **The winners add up only a little** (CNN small: r8 +0.2 over weight decay alone, not significant; CNN large: r8 pending).
-7. **CNN large stays 2 to 3 points ahead of CNN small**, in every round and with every recipe, and is ahead on 132 of 200 species. Its extra capacity is a steady, real gain.
+5. **SAM alone gave no measurable gain on test** for either model (−0.6 and +0.8, neither significant), though it passed the validation bar for CNN large and is part of its r8.
+6. **The winners add up only a little**: CNN small's r8 is +0.2 over weight decay alone (not significant), CNN large's r8 +1.2 (significant, p = 0.016). Most of the gain comes from weight decay.
+7. **CNN large stays 2 to 4 points ahead of CNN small**, in every round and with every recipe (3.9 with the final recipes), and is ahead on 150 of 200 species. Its extra capacity is a steady, real gain.
 8. **Memorizing is reduced, not solved.** The best gap is still 50 to 52 points: both CNNs still get about 100 % of their training photos right.
 
 ---
@@ -397,7 +402,7 @@ The exact settings are in [`cnn/config.py`](cnn/config.py) (`COMBINED`) and in [
 ## 10. Limits
 
 - **One seed.** Every number is seed 42. Gains of 1 to 2 points could move with another seed; the final recipes need three seeds.
-- **CNN large's r8 is not run yet.** Its "final" numbers on this page are r6's.
+- **CNN large's final run was picked on a tie.** r8 and r6 have the same validation score; r8 was chosen as the planned combined recipe, not because of its better test score.
 - **Small validation set.** 600 photos decide the winners, so a difference of 1 to 2 validation points (6 to 12 photos) is within noise. r1 is the example: +1.7 on validation for CNN small, +0.1 on test.
 - **Test set seen.** All test results were read. Decisions are still made on validation only.
 - **The weight-decay search stopped at its best value.** 0.2 was the largest value tried and the best for both models, so the true optimum may be higher.
@@ -414,9 +419,9 @@ Run everything from inside this folder. The shared data is read from the reposit
 cd CNN_Baseline/02_autoaug_nomix_regularization
 python run_queue.py cnn_small                    # r0 ... r7 one after another, every step and epoch printed
 python run_queue.py cnn_large                    # the same for CNN large
-python train.py cnn_large r6_wd0.2 42            # a single run
+python train.py cnn_large r8_combined 42         # a single run
 python run_queue.py cnn_small r8_combined        # the combined run (its settings are in cnn/config.py, COMBINED)
-python watch_training.py cnn_large r6_wd0.2 42   # live monitor, in a second terminal
+python watch_training.py cnn_large r8_combined 42 # live monitor, in a second terminal
 python docs/make_figures.py                      # rebuild every figure, animation and table on this page
 ```
 
@@ -431,9 +436,9 @@ sys.path.insert(0, ".")                                   # run from inside CNN_
 from cnn.config import get_experiment
 from cnn.model import build_model
 
-exp = get_experiment("cnn_large", "r6_wd0.2")             # or ("cnn_small", "r8_combined")
+exp = get_experiment("cnn_large", "r8_combined")          # or ("cnn_small", "r8_combined")
 model = build_model(exp.model)
-ck = torch.load("results/cnn_large/r6_wd0.2/seed42/best_model.pt", map_location="cpu", weights_only=False)
+ck = torch.load("results/cnn_large/r8_combined/seed42/best_model.pt", map_location="cpu", weights_only=False)
 model.load_state_dict(ck["state"])                        # the EMA weights of the chosen epoch
 model.eval()
 # model(x) takes a normalised (B, 3, 224, 224) tensor and returns (B, 200) species scores

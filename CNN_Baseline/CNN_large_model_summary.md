@@ -176,7 +176,7 @@ loss = −Σ<sub>c</sub> target<sub>c</sub> · log softmax(logits)<sub>c</sub>, 
 | Peak learning rate | 5e-4 |
 | Betas | (0.9, 0.999) |
 | Epsilon | 1e-8 (PyTorch default) |
-| Weight decay | 0.05 by default; 0.1 in r5; 0.2 in r6 |
+| Weight decay | 0.05 by default; 0.1 in r5; 0.2 in r6 and r8 |
 | Parameters that get weight decay | conv and linear weights: 11,269,312 parameters |
 | Parameters without weight decay | BatchNorm weights/biases and the head bias: 9,800 parameters |
 | Gradient clipping | global L2 norm clipped to 1.0 |
@@ -190,7 +190,7 @@ The learning rate is updated every step:
 | Linear warm-up | first 10 epochs (840 steps) | 0 → 5e-4 |
 | Cosine decay | remaining 290 epochs | 5e-4 → 1e-6 |
 
-### 5.3 SAM (only in r7)
+### 5.3 SAM (in r7 and r8)
 
 SAM is Sharpness-Aware Minimization (Foret et al., ICLR 2021), wrapped around AdamW with ρ = 0.05. For every batch:
 
@@ -233,31 +233,32 @@ Each run changes **one** setting on top of r0.
 | r3 | drop-path 0.5 | 43.17 | 43.55 | 56.7 | 1.99 |
 | r4 | label smoothing 0.2 | 48.50 | 47.89 | 52.0 | 23.01 |
 | r5 | weight decay 0.1 | 47.67 | 47.89 | 52.8 | 9.86 |
-| **r6** | **weight decay 0.2** | **50.50** | **50.28** | **50.0** | 12.62 |
+| r6 | weight decay 0.2 | **50.50** | 50.28 | **50.0** | 12.62 |
 | r7 | SAM (ρ 0.05) | 47.33 | 46.82 | 52.7 | 4.64 |
-| r8 combined | *not run yet* | — | — | — | — |
+| **r8 combined** | **weight decay 0.2 + label smoothing 0.2 + drop-path 0.2 + SAM** | **50.50** | **51.52** | 50.2 | 16.39 |
 
 All values are in %. Gap = clean training top-1 minus validation top-1. ECE = expected calibration error on test.
 
-- **Best so far:** r6 (weight decay 0.2), **50.28 % test top-1**. That is +4.25 over r0 (p ≈ 5e-18, exact McNemar test) and +4.4 over round 01 (45.86 %; p ≈ 1e-15).
-- **Against round 01, photo by photo,** r6 gets 651 test photos newly right and 393 newly wrong. By test F1, 138 of 200 species improved, 59 got worse and 3 stayed the same.
-- **Candidates for r8**, using the same rule as CNN small (beat r0 on validation by more than one photo): weight decay 0.2, label smoothing 0.2, SAM, drop-path 0.2. This section is updated once r8 is run.
-- **Label smoothing 0.2** makes the model under-confident (ECE 23 %). Temperature scaling after training can fix this without changing accuracy.
+- **Final model: r8 combined, 51.52 % test top-1** (top-5 76.46 %, macro-F1 51.53 %). That is +5.49 over r0 (594 vs 276 photos, p < 0.0001, exact McNemar test) and +5.7 over round 01 (45.86 %; p ≈ 1e-26).
+- **r8 and r6 tie on validation** (50.50 %, 303 of 600 photos each). The tie goes to r8, the planned combined recipe. On test r8 is 1.24 points better than r6 (459 vs 388 photos, p = 0.016).
+- **What r8 combines**, using the same rule as CNN small (beat r0 on validation by more than one photo): weight decay 0.2, label smoothing 0.2, SAM, drop-path 0.2. Unlike CNN small, SAM qualified.
+- **Against round 01, photo by photo,** r8 gets 651 test photos newly right and 322 newly wrong. By test F1, 151 of 200 species improved, 48 got worse and 1 stayed the same.
+- **Label smoothing 0.2** makes the model under-confident (ECE 23 % in r4, 16.4 % in r8: on average r8 says 35 % but is right 52 % of the time). Temperature scaling after training can fix this without changing accuracy.
 
 ---
 
-## 8. Model configuration (best run so far: r6_wd0.2)
+## 8. Model configuration (final run: r8_combined)
 
 ```json
 "model": {"img_size": 224, "num_classes": 200, "widths": [64, 128, 256, 512], "blocks": [2, 2, 2, 2],
-          "zero_init_residual": true, "drop_path": 0.0},
+          "zero_init_residual": true, "drop_path": 0.2},
 "train": {"epochs": 300, "batch_size": 64, "lr": 0.0005, "min_lr": 1e-06, "warmup_epochs": 10,
-          "weight_decay": 0.2, "betas": [0.9, 0.999], "grad_clip": 1.0, "label_smoothing": 0.1, "amp": true,
+          "weight_decay": 0.2, "betas": [0.9, 0.999], "grad_clip": 1.0, "label_smoothing": 0.2, "amp": true,
           "aug_tier": "auto", "use_mixup_cutmix": false, "use_ema": true, "ema_decay": 0.999,
-          "best_metric": "acc1", "early_stop_patience": 0, "use_sam": false}
+          "best_metric": "acc1", "early_stop_patience": 0, "use_sam": true, "sam_rho": 0.05}
 ```
 
-Full file: `02_autoaug_nomix_regularization/results/cnn_large/r6_wd0.2/seed42/config.json`
+Full file: `02_autoaug_nomix_regularization/results/cnn_large/r8_combined/seed42/config.json`
 
 To rebuild and load it:
 
@@ -266,9 +267,9 @@ from cnn.config import get_experiment
 from cnn.model import build_model
 import torch
 
-exp = get_experiment("cnn_large", "r6_wd0.2")
+exp = get_experiment("cnn_large", "r8_combined")
 model = build_model(exp.model)
-ck = torch.load("results/cnn_large/r6_wd0.2/seed42/best_model.pt", map_location="cpu", weights_only=False)
+ck = torch.load("results/cnn_large/r8_combined/seed42/best_model.pt", map_location="cpu", weights_only=False)
 model.load_state_dict(ck["state"])      # EMA weights of the best validation epoch
 model.eval()
 ```
@@ -277,14 +278,15 @@ model.eval()
 
 ## 9. Differences from round 01
 
-| Setting | Round 01 (`01_strongaug_mixup_cutmix/`) | Round 02 (best so far, r6) |
+| Setting | Round 01 (`01_strongaug_mixup_cutmix/`) | Round 02 (final r8) |
 |---|---|---|
-| Architecture | same widths and blocks, no drop-path | same, no drop-path |
+| Architecture | same widths and blocks, no drop-path | same, drop-path 0.2 |
 | Augmentation | `strong`: crop + flip + affine + colour jitter + erasing, all applied together | `auto`: crop + flip + **one** TrivialAugment op + erasing |
 | Mixup / CutMix | on | **off** |
-| Label smoothing | 0.1 | 0.1 |
+| Label smoothing | 0.1 | 0.2 |
 | Weight decay | 0.05 | 0.2 |
-| Test top-1 | 45.86 % | **50.28 %** |
+| Optimizer | AdamW | AdamW + SAM (ρ 0.05) |
+| Test top-1 | 45.86 % | **51.52 %** |
 
 ---
 
@@ -299,6 +301,6 @@ model.eval()
 | Throughput, batch 64 | ~14,100 img/s | ~10,000 img/s |
 | Round 02 r0 test top-1 | 43.75 % | 46.03 % |
 | Round 02 r6 (weight decay 0.2) test top-1 | 47.43 % | 50.28 % |
-| Final | r8: 47.65 % | r8 pending |
+| Final (r8 combined) test top-1 | 47.65 % | **51.52 %** (+3.87, p ≈ 6e-14) |
 
 Everything except the widths is identical: same code, same data, same recipe and same runs.

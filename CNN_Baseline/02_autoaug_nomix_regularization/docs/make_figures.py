@@ -123,7 +123,7 @@ def fig_overview(model, df):
                 a.barh(yi, v, color=RUNS[run][2], height=0.66, edgecolor="white", linewidth=2, zorder=2)
                 d = v - ref[col]
                 a.text(v + 0.3, yi, f"{v:.2f}%" + ("" if run == "r0_reference" else f"  ({d:+.1f})"), va="center",
-                       fontsize=9, color=INK, fontweight="bold" if run == df.loc[df.val_top1.idxmax(), "run"] else
+                       fontsize=9, color=INK, fontweight="bold" if run == final_run(df) else
                        "normal")
             else:
                 a.barh(yi, ref[col], color="white", height=0.66, edgecolor="#bbbbbb", linewidth=1.2, ls="--",
@@ -155,7 +155,8 @@ def fig_gap(model, df):
     offset = {"cnn_small": {"r1_droppath0.2": (8, -15, "left"), "r4_labelsmooth0.2": (8, 8, "left"),
                             "r5_wd0.1": (-8, 8, "right")},
               "cnn_large": {"r1_droppath0.2": (8, 2, "left"), "r5_wd0.1": (-10, -17, "right"),
-                            "r4_labelsmooth0.2": (8, 8, "left")}}[model]   # hand-placed so close points never overlap
+                            "r4_labelsmooth0.2": (8, 8, "left"),
+                            "r6_wd0.2": (0, -20, "center"), "r8_combined": (10, 6, "left")}}[model]   # hand-placed so close points never overlap
     for r in df.itertuples():
         ax.scatter(r.gap, r.val_top1, s=150, color=RUNS[r.run][2], edgecolor="white", linewidth=2, zorder=3)
         dx, dy, ha = offset.get(r.run, (8, 6, "left"))
@@ -282,7 +283,7 @@ def fig_before_after(model, df):
         return None
     o = json.loads(old.read_text())["row"]
     d = df.set_index("run")
-    best = df.loc[df.val_top1.idxmax(), "run"]
+    best = final_run(df)
     cols = [("Round 01\nstrong aug\n+ Mixup/CutMix", o["test_acc1"], o["test_acc5"], o["test_macro_f1"],
              o["overfit_gap_clean_minus_val"], o["test_ece"], "#cccccc"),
             ("Round 02 r0\nauto aug,\nno mixing", d.loc["r0_reference", "test_top1"], d.loc["r0_reference", "test_top5"],
@@ -320,7 +321,7 @@ def fig_improvement(model, df):
     old = R01 / model / "seed42"
     if not (old / "test_predictions.csv").exists():
         return None
-    best = df.loc[df.val_top1.idxmax(), "run"]
+    best = final_run(df)
     new = run_dir(model, best)
     po = pd.read_csv(old / "test_predictions.csv").set_index("image_id")
     pn = pd.read_csv(new / "test_predictions.csv").set_index("image_id").loc[po.index]
@@ -426,7 +427,7 @@ def tables(model, df, old):
             "r4_labelsmooth0.2": "label smoothing 0.1 -> 0.2", "r5_wd0.1": "weight decay 0.05 -> 0.1",
             "r6_wd0.2": "weight decay 0.05 -> 0.2", "r7_sam": "SAM optimizer (rho 0.05)",
             "r8_combined": "winners of r1-r7 combined"}
-    best = df.loc[df.val_top1.idxmax(), "run"]
+    best = final_run(df)
     for run in RUNS:
         if run not in df.run.values:
             lines.append(f"| {run} | {what[run]} | *pending* | *pending* | | | | | | |")
@@ -466,7 +467,9 @@ def fact(s):
 
 
 def final_run(df):
-    return df.loc[df.val_top1.idxmax(), "run"]
+    # best validation top-1; on a tie the later run wins, so r8_combined (the planned final recipe) beats a single change
+    best = df[df.val_top1 >= df.val_top1.max() - 1e-9]
+    return best["run"].iloc[-1]
 
 
 def load_final(model, run):

@@ -85,8 +85,11 @@ RUNS: Dict[str, Tuple[Dict[str, Any], Dict[str, Any]]] = {
 # (one value per setting; a change counts as a winner only if it beat r0 on validation by more than one photo).
 # cnn_small (chosen 2026-11-19): weight decay 0.2 (+3.33 val), label smoothing 0.2 (+2.17), drop-path 0.2 (+1.67).
 #   SAM left out: +0.17 val = one photo, -0.62 test (not significant). Weight decay 0.1 dropped: 0.2 was better.
+# cnn_large (chosen 2026-11-20): weight decay 0.2 (+4.67 val), label smoothing 0.2 (+2.67), SAM (+1.50 = 9 photos),
+#   drop-path 0.2 (+0.67 = 4 photos). Weight decay 0.1 dropped (0.2 was better); drop-path 0.4 / 0.5 were worse than r0.
 COMBINED: Dict[str, Tuple[Dict[str, Any], Dict[str, Any]]] = {
     "cnn_small": ({"drop_path": 0.2}, {"weight_decay": 0.2, "label_smoothing": 0.2}),
+    "cnn_large": ({"drop_path": 0.2}, {"weight_decay": 0.2, "label_smoothing": 0.2, "use_sam": True}),
 }
 
 

@@ -7,3 +7,4 @@
 | r5_wd0.1 vs r0_reference | +1.86 | 429 | 321 | 0.0001 | yes |
 | r6_wd0.2 vs r0_reference | +4.26 | 534 | 287 | 0.0000 | yes |
 | r7_sam vs r0_reference | +0.81 | 418 | 371 | 0.1014 | no |
+| r8_combined vs r0_reference | +5.49 | 594 | 276 | 0.0000 | yes |
