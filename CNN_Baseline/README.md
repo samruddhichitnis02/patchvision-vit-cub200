@@ -17,10 +17,6 @@ Model details: [`CNN_small_model_summary.md`](CNN_small_model_summary.md) · [`C
 
 ## 1. The result in one minute
 
-<table>
-<tr>
-<td width="56%">
-
 | | CNN small: round 01 | CNN small: **round 02** | CNN large: round 01 | CNN large: **round 02** |
 |---|---|---|---|---|
 | Test top-1 | 43.65 % | **47.65 %** | 45.86 % | **51.52 %** |
@@ -32,18 +28,13 @@ Model details: [`CNN_small_model_summary.md`](CNN_small_model_summary.md) · [`C
 
 One seed (42), the same 5,794 unseen test photos, sampling noise about ±1.3 points. p = exact paired (McNemar) test on the same photos. Round 02 = each model's final run (r8, best on validation).
 
-</td>
-<td>
+**In short:**
 
 1. **Both CNNs got clearly better**: +4.0 (small) and +5.7 (large) test points, on top-1, top-5 and macro-F1 alike.
 2. **The gain came from weight decay, not from the augmentation change.** Switching to `auto` augmentation and dropping Mixup/CutMix alone changed accuracy by +0.1 to +0.2 points (not significant). Weight decay 0.05 → 0.2 then gave +3.7 / +4.3.
 3. **The larger model gains more**: its lead over CNN small grew from 2.2 to 3.9 points.
 4. **Memorizing went down only a little** (about 3 points). Both models still get about 100 % of their training photos right.
 5. **The price is confidence**: round 02 models are under-confident (ECE doubled).
-
-</td>
-</tr>
-</table>
 
 ![Round 01 vs round 02](docs/figures/x01_round01_vs_round02.png)
 
