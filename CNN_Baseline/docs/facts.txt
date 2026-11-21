@@ -1,0 +1,21 @@
+CNN small round02 vs round01: +4.02, 655/422, p=1.3e-12; r1 43.65 r2 47.65; top5 69.02->74.63; f1 43.54->47.46; gap 54.7->51.5; ece 7.07->14.27; val 44.50->48.67; epochs 223->300; best ep 163->236; min 33.5->31.1
+CNN small round01: min val loss 2.50 @ 128, last clean 99.8
+CNN small round02: min val loss 2.35 @ 164, last clean 100.0
+CNN large round02 vs round01: +5.68, 651/322, p=2.5e-26; r1 45.86 r2 51.52; top5 71.16->76.46; f1 45.79->51.53; gap 53.3->50.2; ece 8.56->16.39; val 46.67->50.50; epochs 200->300; best ep 140->188; min 30.0->31.4
+CNN large round01: min val loss 2.44 @ 116, last clean 100.0
+CNN large round02: min val loss 2.27 @ 139, last clean 100.0
+round 01 large vs small: +2.21, 478/350, p=9.8e-06
+round 02 large vs small: +3.87, 558/334, p=6.1e-14
+CNN small step round01 -> r0_reference: +0.10, 533/528, p=0.9
+CNN small step r0_reference -> r6_wd0.2: +3.68, 518/303, p=5.9e-14
+CNN small step r6_wd0.2 -> r8_combined: +0.22, 460/447, p=0.69
+CNN large step round01 -> r0_reference: +0.17, 517/506, p=0.75
+CNN large step r0_reference -> r6_wd0.2: +4.25, 534/287, p=5.1e-18
+CNN large step r6_wd0.2 -> r8_combined: +1.24, 459/388, p=0.016
+CNN small round 01: mean confidence 36.6, accuracy 43.65, ECE 7.07
+CNN small round 02: mean confidence 33.4, accuracy 47.65, ECE 14.27
+CNN large round 01: mean confidence 37.3, accuracy 45.86, ECE 8.56
+CNN large round 02: mean confidence 35.1, accuracy 51.52, ECE 16.39
+CNN small species: up 131, down 63, same 6, median +3.1; best [('White throated Sparrow', 21), ('Ringed Kingfisher', 24), ('Myrtle Warbler', 26)], worst [('Common Raven', -14), ('Ruby throated Hummingbird', -14), ('Rock Wren', -13)]
+CNN large species: up 151, down 48, same 1, median +5.3; best [('Brown Creeper', 23), ('Red faced Cormorant', 25), ('American Three toed Woodpecker', 25)], worst [('Black footed Albatross', -24), ('House Sparrow', -13), ('Fish Crow', -9)]
+photos fixed for both models 217, broken for both 83
