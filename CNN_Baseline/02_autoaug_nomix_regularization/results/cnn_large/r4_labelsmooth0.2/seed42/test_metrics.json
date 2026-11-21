@@ -1,0 +1,120 @@
+{
+  "row": {
+    "experiment": "cnn_large/r4_labelsmooth0.2",
+    "seed": 42,
+    "best_epoch": 237,
+    "epochs_run": 300,
+    "stopped_early": false,
+    "train_time_s": 1908.8758504390717,
+    "sec_per_epoch": 6.362919501463572,
+    "best_val_acc1": 48.5,
+    "val_acc1_at_best": 48.5,
+    "overfit_gap_clean_minus_val": 52.0,
+    "test_acc1": 47.89437348981705,
+    "test_acc5": 71.55678287884018,
+    "test_macro_f1": 47.474501012397475,
+    "test_macro_precision": 48.00611451177495,
+    "test_macro_recall": 48.17908700991238,
+    "test_weighted_f1": 47.344829348465325,
+    "test_loss": 2.7256811530910197,
+    "test_ece": 23.0118791376059,
+    "test_attn_in_box": NaN,
+    "params_M": 11.279112,
+    "GFLOPs": 3.627327488,
+    "latency_ms_bs1": 1.499840000178665,
+    "throughput_img_s_bs64": 10219.144772341035,
+    "run_dir": "D:\\Samruddhi\\patchvision-vit-cub200\\CNN_Baseline\\02_autoaug_nomix_regularization\\results\\cnn_large\\r4_labelsmooth0.2\\seed42"
+  },
+  "test": {
+    "loss": 2.7256811530910197,
+    "acc1": 47.89437348981705,
+    "acc5": 71.55678287884018,
+    "macro_precision": 48.00611451177495,
+    "macro_recall": 48.17908700991238,
+    "macro_f1": 47.474501012397475,
+    "weighted_f1": 47.344829348465325,
+    "n": 5794,
+    "ece": 23.0118791376059,
+    "time_s": 43.116857051849365
+  },
+  "efficiency": {
+    "params_M": 11.279112,
+    "GFLOPs_per_image": 3.627327488,
+    "latency_ms_bs1": 1.499840000178665,
+    "throughput_img_s_bs1": 666.7377852843485,
+    "latency_ms_bs64": 6.262754998169839,
+    "throughput_img_s_bs64": 10219.144772341035
+  },
+  "config": {
+    "name": "cnn_large/r4_labelsmooth0.2",
+    "seed": 42,
+    "model": {
+      "img_size": 224,
+      "num_classes": 200,
+      "widths": [
+        64,
+        128,
+        256,
+        512
+      ],
+      "blocks": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "zero_init_residual": true,
+      "drop_path": 0.0
+    },
+    "train": {
+      "epochs": 300,
+      "batch_size": 64,
+      "lr": 0.0005,
+      "min_lr": 1e-06,
+      "warmup_epochs": 10,
+      "weight_decay": 0.05,
+      "betas": [
+        0.9,
+        0.999
+      ],
+      "grad_clip": 1.0,
+      "label_smoothing": 0.2,
+      "amp": true,
+      "aug_tier": "auto",
+      "use_mixup_cutmix": false,
+      "use_bbox_loss": false,
+      "bbox_weight": 0.1,
+      "use_ema": true,
+      "ema_decay": 0.999,
+      "use_consistency": false,
+      "cons_logit_weight": 1.0,
+      "cons_attn_weight": 1.0,
+      "use_box_crop": false,
+      "box_crop_prob": 0.3,
+      "box_crop_margin": [
+        0.1,
+        0.4
+      ],
+      "best_metric": "acc1",
+      "early_stop_patience": 0,
+      "early_stop_start": 30,
+      "clean_eval_every": 5,
+      "clean_eval_size": 600,
+      "snapshot_every": 10,
+      "weights_every": 50,
+      "plot_every": 10,
+      "use_sam": false,
+      "sam_rho": 0.05
+    }
+  },
+  "env": {
+    "python": "3.12.10",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "torch": "2.11.0+cu128",
+    "cuda_available": true,
+    "git_commit": "b54d89e0dcbac8f9b5e999d709b24161466ef5cf",
+    "torchvision": "0.26.0+cu128",
+    "gpu": "NVIDIA GeForce RTX 5090",
+    "cuda": "12.8"
+  }
+}
