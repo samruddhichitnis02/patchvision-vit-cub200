@@ -12,7 +12,7 @@ All numbers in this file come from the code and from the saved run files:
 | Model code | [`02_autoaug_nomix_regularization/cnn/model.py`](02_autoaug_nomix_regularization/cnn/model.py) (the same code as CNN small) |
 | Model and run settings | [`02_autoaug_nomix_regularization/cnn/config.py`](02_autoaug_nomix_regularization/cnn/config.py) (`MODELS["cnn_large"]`, `BASE_TRAIN`, `RUNS`) |
 | Training loop | [`02_autoaug_nomix_regularization/cnn/engine.py`](02_autoaug_nomix_regularization/cnn/engine.py) |
-| Optimizer, schedule, loss, EMA, data | Shared with the ViT study: `ViT_PatchVisionX/patchvision/` (`optim.py`, `losses.py`, `regularization.py`, `data.py`) |
+| Optimizer, schedule, loss, EMA, data | Shared with the ViT study: `Vision_Transformer/patchvision/` (`optim.py`, `losses.py`, `regularization.py`, `data.py`) |
 | Saved settings of every run | `02_autoaug_nomix_regularization/results/cnn_large/<run>/seed42/config.json` |
 
 The settings described here are the **round 02** recipe (`02_autoaug_nomix_regularization/`). Round 01 differences

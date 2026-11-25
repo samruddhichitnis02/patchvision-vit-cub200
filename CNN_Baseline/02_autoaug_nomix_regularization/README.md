@@ -83,7 +83,7 @@ Every layer, parameter count, loss, optimizer and training setting is written ou
 | Stopping | early stopping, patience 60 | **off: every run trains the full 300 epochs**, so all runs get the same budget |
 | Everything else | AdamW 5e-4, weight decay 0.05, label smoothing 0.1, 10 warm-up epochs + cosine, batch 64, EMA, bf16 | unchanged |
 
-**Switched off, as in round 01**, because they need attention maps or a token grid, which a CNN doesn't have: the bird-box attention loss, the flip-consistency loss, and the box-guided crop. The CNN never sees the bird bounding boxes. Data pipeline, optimizer, schedule, EMA and metrics are imported from `../../ViT_PatchVisionX/patchvision`, so both studies are measured identically.
+**Switched off, as in round 01**, because they need attention maps or a token grid, which a CNN doesn't have: the bird-box attention loss, the flip-consistency loss, and the box-guided crop. The CNN never sees the bird bounding boxes. Data pipeline, optimizer, schedule, EMA and metrics are imported from `../../Vision_Transformer/patchvision`, so both studies are measured identically.
 
 Two **new tools** were added to the CNN code for this round (both off in r0):
 
@@ -459,7 +459,7 @@ CNN_Baseline/02_autoaug_nomix_regularization/
 │   ├── model.py            the CNN, now with drop-path (stochastic depth)
 │   ├── engine.py           training / validation / test loop, now with the SAM step
 │   ├── experiment.py       one-batch dry run
-│   └── _vit.py             makes ../../ViT_PatchVisionX/patchvision importable (data, metrics, optimizer)
+│   └── _vit.py             makes ../../Vision_Transformer/patchvision importable (data, metrics, optimizer)
 ├── docs/
 │   ├── make_figures.py     rebuilds every figure, animation and table on this page
 │   ├── figures/  animations/  tables/  facts.txt

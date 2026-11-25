@@ -1,7 +1,7 @@
 """
 Builds every figure and animation used by CNN_Baseline/01_strongaug_mixup_cutmix/README.md from the FINISHED CNN runs
 (CNN_Baseline/01_strongaug_mixup_cutmix/results/cnn_small and cnn_large). Nothing is drawn by hand except the architecture sketch.
-The ViT numbers used as a dashed reference line are read from ViT_PatchVisionX/results/full.
+The ViT numbers used as a dashed reference line are read from ViT_PatchVisionX/01_strongaug_mixup_cutmix/results/full.
 
     python docs/make_figures.py              # everything     (run from inside CNN_Baseline/01_strongaug_mixup_cutmix/)
     python docs/make_figures.py bars ema     # only the named parts (see PARTS at the bottom)
@@ -58,7 +58,7 @@ def runs():
 
 
 def vit_full():
-    return json.loads((ROOT / "ViT_PatchVisionX" / "results" / "full" / f"seed{SEED}" / "test_metrics.json").read_text())["row"]
+    return json.loads((ROOT / "ViT_PatchVisionX" / "01_strongaug_mixup_cutmix" / "results" / "full" / f"seed{SEED}" / "test_metrics.json").read_text())["row"]
 
 
 def save(fig, name):

@@ -13,7 +13,7 @@ are only updated in the first pass.
 
 CNN trainer: the training / validation / checkpoint / logging / test loop for the CNN baselines.
 
-Same structure and SAME output files as the ViT trainer (ViT_PatchVisionX/patchvision/engine.py), minus everything
+Same structure and SAME output files as the ViT trainer (Vision_Transformer/patchvision/engine.py), minus everything
 that needs attention maps (box-attention loss, flip-consistency loss, attention snapshots).  Everything is written to
 <results>/<experiment>/seed<seed>/ :
 

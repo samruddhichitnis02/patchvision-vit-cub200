@@ -23,7 +23,7 @@ import copy
 from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Dict, Optional, Tuple
 
-from . import _vit  # noqa: F401  (adds ViT_PatchVisionX to sys.path)
+from . import _vit  # noqa: F401  (adds Vision_Transformer to sys.path)
 from patchvision.config import PathsConfig, TrainConfig  # noqa: E402,F401
 
 

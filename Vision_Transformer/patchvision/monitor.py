@@ -51,7 +51,13 @@ def render(run_dir, rows: int = 12) -> str:
     if not log.exists():
         return "\n".join(out + ["waiting for the run to start (train_log.txt not found yet) ..."])
     finished = (rd / "test_metrics.json").exists()
-    h = pd.read_csv(rd / "history.csv") if (rd / "history.csv").exists() else pd.DataFrame()
+    h = pd.DataFrame()
+    for _ in range(5):                     # the trainer rewrites history.csv every epoch; a read can catch it half-written
+        try:
+            h = pd.read_csv(rd / "history.csv") if (rd / "history.csv").exists() else pd.DataFrame()
+            break
+        except (pd.errors.EmptyDataError, pd.errors.ParserError, OSError):
+            time.sleep(0.3)
     m = _last_step(log)
     total = int(m.group(2)) if m else (int(h["epoch"].max()) if len(h) else 0)
 

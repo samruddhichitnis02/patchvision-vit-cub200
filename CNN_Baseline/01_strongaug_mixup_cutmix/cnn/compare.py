@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-Entry = Tuple[str, Path]          # (label, run_dir)  e.g. ("ViT full", ".../ViT_PatchVisionX/results/full/seed42")
+Entry = Tuple[str, Path]          # (label, run_dir)  e.g. ("ViT full", ".../ViT_PatchVisionX/01_strongaug_mixup_cutmix/results/full/seed42")
 
 _COLS = [("params_M", "params (M)"), ("GFLOPs", "GFLOPs"), ("test_acc1", "top-1 (%)"), ("test_acc5", "top-5 (%)"),
          ("test_macro_f1", "macro-F1 (%)"), ("test_ece", "ECE (%)"), ("overfit_gap_clean_minus_val", "train-val gap (pts)"),
@@ -21,12 +21,13 @@ _COLS = [("params_M", "params (M)"), ("GFLOPs", "GFLOPs"), ("test_acc1", "top-1 
 def default_entries(repo_root, seed: int = 42, include_trials: bool = False) -> List[Entry]:
     """The runs of both studies (only those that exist). Order = table order."""
     root = Path(repo_root)
-    vit, cnn = root / "ViT_PatchVisionX" / "results", root / "CNN_Baseline" / "01_strongaug_mixup_cutmix" / "results"
+    vit, cnn = root / "Vision_Transformer" / "01_strongaug_mixup_cutmix" / "results", root / "CNN_Baseline" / "01_strongaug_mixup_cutmix" / "results"
+    pvx = root / "ViT_PatchVisionX" / "01_strongaug_mixup_cutmix" / "results"
     cand = [("CNN small (4.2M)", cnn / "cnn_small"), ("CNN large (11.3M)", cnn / "cnn_large"),
-            ("ViT base", vit / "base"), ("PatchVision-X (full)", vit / "full")]
+            ("ViT base", vit / "base"), ("PatchVision-X (full)", pvx / "full")]
     if include_trials:
-        cand += [("ViT full + drop-path 0.3", vit / "ovf1_droppath0.3"), ("ViT full + wd 0.1", vit / "ovf2_wd0.1"),
-                 ("ViT full + auto-aug", vit / "ovf3_autoaug"), ("ViT full + dropout 0.1", vit / "ovf4_dropout0.1")]
+        cand += [("ViT full + drop-path 0.3", pvx / "ovf1_droppath0.3"), ("ViT full + wd 0.1", pvx / "ovf2_wd0.1"),
+                 ("ViT full + auto-aug", pvx / "ovf3_autoaug"), ("ViT full + dropout 0.1", pvx / "ovf4_dropout0.1")]
     out = []
     for label, d in cand:
         rd = d / f"seed{seed}"

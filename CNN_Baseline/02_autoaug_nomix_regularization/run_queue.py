@@ -15,7 +15,7 @@ import pandas as pd
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-# import THIS folder's train.py first: importing `cnn` puts ViT_PatchVisionX on sys.path, and that folder has its
+# import THIS folder's train.py first: importing `cnn` puts Vision_Transformer on sys.path, and that folder has its
 # own train.py, which would otherwise be found instead
 from train import RESULTS, ROOT, train  # noqa: E402
 from cnn.config import RUNS  # noqa: E402

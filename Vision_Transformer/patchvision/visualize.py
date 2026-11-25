@@ -4,6 +4,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional, Sequence
 
+import sys
+
+import matplotlib
+if "ipykernel" not in sys.modules:         # scripts: file-only backend; the default Tk backend crashed a long run (tcl86t.dll)
+    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd

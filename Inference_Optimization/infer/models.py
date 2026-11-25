@@ -17,7 +17,9 @@ import torch
 import torch.nn as nn
 
 REPO = Path(__file__).resolve().parents[2]
-VIT_DIR = REPO / "ViT_PatchVisionX"
+VIT_DIR = REPO / "Vision_Transformer"                       # shared patchvision package
+VIT_R01 = VIT_DIR / "01_strongaug_mixup_cutmix"         # round-01 plain ViT run (base)
+PVX_R01 = REPO / "ViT_PatchVisionX" / "01_strongaug_mixup_cutmix"   # round-01 PatchVision-X runs (full, trials, E4)
 CNN_DIR = REPO / "CNN_Baseline" / "01_strongaug_mixup_cutmix"
 for p in (VIT_DIR, CNN_DIR):
     if str(p) not in sys.path:
@@ -30,14 +32,14 @@ from cnn.model import build_model as build_cnn  # noqa: E402
 
 # run name -> (family, results folder)
 RUNS: Dict[str, Tuple[str, Path]] = {
-    "base": ("vit", VIT_DIR / "results/base/seed42"),
-    "full": ("vit", VIT_DIR / "results/full/seed42"),
-    "ovf1_droppath0.3": ("vit", VIT_DIR / "results/ovf1_droppath0.3/seed42"),
-    "ovf2_wd0.1": ("vit", VIT_DIR / "results/ovf2_wd0.1/seed42"),
-    "ovf3_autoaug": ("vit", VIT_DIR / "results/ovf3_autoaug/seed42"),
-    "ovf4_dropout0.1": ("vit", VIT_DIR / "results/ovf4_dropout0.1/seed42"),
-    "ovf5_dp0.3_autoaug": ("vit", VIT_DIR / "results/ovf5_dp0.3_autoaug/seed42"),
-    "ovf6_all_four": ("vit", VIT_DIR / "results/ovf6_all_four/seed42"),
+    "base": ("vit", VIT_R01 / "results/base/seed42"),
+    "full": ("vit", PVX_R01 / "results/full/seed42"),
+    "ovf1_droppath0.3": ("vit", PVX_R01 / "results/ovf1_droppath0.3/seed42"),
+    "ovf2_wd0.1": ("vit", PVX_R01 / "results/ovf2_wd0.1/seed42"),
+    "ovf3_autoaug": ("vit", PVX_R01 / "results/ovf3_autoaug/seed42"),
+    "ovf4_dropout0.1": ("vit", PVX_R01 / "results/ovf4_dropout0.1/seed42"),
+    "ovf5_dp0.3_autoaug": ("vit", PVX_R01 / "results/ovf5_dp0.3_autoaug/seed42"),
+    "ovf6_all_four": ("vit", PVX_R01 / "results/ovf6_all_four/seed42"),
     "cnn_small": ("cnn", CNN_DIR / "results/cnn_small/seed42"),
     "cnn_large": ("cnn", CNN_DIR / "results/cnn_large/seed42"),
 }

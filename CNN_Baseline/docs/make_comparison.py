@@ -129,7 +129,7 @@ def fig_photos():
     from PIL import Image
     from torchvision import tv_tensors
     from torchvision.transforms import v2 as T
-    sys.path.insert(0, str(ROOT / "ViT_PatchVisionX"))
+    sys.path.insert(0, str(ROOT / "Vision_Transformer"))
     from patchvision.data import MixupCutmix, build_transforms
     mean = [0.4859701097011566, 0.49921685457229614, 0.43137678503990173]
     std = [0.22647330164909363, 0.2219720035791397, 0.2609000504016876]

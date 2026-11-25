@@ -3,8 +3,8 @@ Stop it with Ctrl+C: this never affects the training itself."""
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent      # ViT_PatchVisionX/
-sys.path.insert(0, str(ROOT))
+ROOT = Path(__file__).resolve().parent      # Vision_Transformer/01_strongaug_mixup_cutmix/
+sys.path.insert(0, str(ROOT.parent))        # Vision_Transformer/: the shared patchvision package
 
 from patchvision.monitor import watch
 

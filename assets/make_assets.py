@@ -1,6 +1,6 @@
 ﻿"""
 Builds every figure, animation and table used by the top-level README.md from the FINISHED run files of both studies
-(ViT_PatchVisionX/results and CNN_Baseline/01_strongaug_mixup_cutmix/results).  Nothing is drawn by hand except the two architecture sketches.
+(Vision_Transformer/01_strongaug_mixup_cutmix/results, ViT_PatchVisionX/01_strongaug_mixup_cutmix/results and CNN_Baseline/01_strongaug_mixup_cutmix/results).  Nothing is drawn by hand except the two architecture sketches.
 
     python assets/make_assets.py              # everything
     python assets/make_assets.py bars gap     # only the named parts (see PARTS at the bottom)
@@ -30,7 +30,8 @@ ROOT = Path(__file__).resolve().parents[1]
 FIG, ANI, TAB = ROOT / "assets" / "figures", ROOT / "assets" / "animations", ROOT / "assets" / "tables"
 for d in (FIG, ANI, TAB):
     d.mkdir(parents=True, exist_ok=True)
-VIT, CNN = ROOT / "ViT_PatchVisionX" / "results", ROOT / "CNN_Baseline" / "01_strongaug_mixup_cutmix" / "results"
+VIT, CNN = ROOT / "Vision_Transformer" / "01_strongaug_mixup_cutmix" / "results", ROOT / "CNN_Baseline" / "01_strongaug_mixup_cutmix" / "results"
+PVX = ROOT / "ViT_PatchVisionX" / "01_strongaug_mixup_cutmix" / "results"   # PatchVision-X round 01: full, trials, E4
 CUB = ROOT / "CUB_200_2011"
 SEED = 42
 
@@ -38,7 +39,7 @@ plt.rcParams.update({"font.size": 10, "axes.spines.top": False, "axes.spines.rig
                      "axes.grid": True, "grid.alpha": 0.25})
 
 # label, run folder name, results root, colour
-MAIN = [("ViT base", "base", VIT, "#8c8c8c"), ("PatchVision-X", "full", VIT, "#1f77b4"),
+MAIN = [("ViT base", "base", VIT, "#8c8c8c"), ("PatchVision-X", "full", PVX, "#1f77b4"),
         ("CNN small", "cnn_small", CNN, "#ff7f0e"), ("CNN large", "cnn_large", CNN, "#2ca02c")]
 WINNER = "PatchVision-X"
 GOLD = "#d4a017"
@@ -165,7 +166,7 @@ def part_efficiency():
         a.tick_params(axis="x", rotation=18)
     fig.suptitle("Cost.  Parameters and GFLOPs are hardware-independent.  The three time charts are NOT like-for-like (see note)",
                  fontsize=13, fontweight="bold")
-    gpu_tag = ["RTX 4090" if "ViT_PatchVisionX" in str(r["dir"]) else "RTX 5090" for r in M]
+    gpu_tag = ["RTX 4090" if "Vision_Transformer" in str(r["dir"]) else "RTX 5090" for r in M]
     for a in ax[1:]:
         a.set_xticks(range(len(M)))
         a.set_xticklabels([f"{r['label']}\n[{g}]" for r, g in zip(M, gpu_tag)], rotation=0, fontsize=8)
@@ -471,7 +472,7 @@ E4_RUNS = [("full (reference)", "full", "#7f7f7f"), ("drop-path 0.3", "ovf1_drop
 def _e4_runs():
     out = []
     for lab, name, col in E4_RUNS:
-        r = load_run(lab, name, VIT, col)
+        r = load_run(lab, name, PVX, col)
         if r is not None:
             out.append(r)
     return out
@@ -638,8 +639,8 @@ def anim_e4():
 def part_e4_significance():
     """Paired exact test of the E4 winner against the reference runs, on the same test photos."""
     P = {}
-    for lab, name, base in [("PatchVision-X (full)", "full", VIT), ("drop-path 0.3 (ovf1)", "ovf1_droppath0.3", VIT),
-                            ("E4 drop-path 0.3 + auto-aug (ovf5)", "ovf5_dp0.3_autoaug", VIT), ("E4 all four (ovf6)", "ovf6_all_four", VIT),
+    for lab, name, base in [("PatchVision-X (full)", "full", PVX), ("drop-path 0.3 (ovf1)", "ovf1_droppath0.3", PVX),
+                            ("E4 drop-path 0.3 + auto-aug (ovf5)", "ovf5_dp0.3_autoaug", PVX), ("E4 all four (ovf6)", "ovf6_all_four", PVX),
                             ("CNN small", "cnn_small", CNN), ("CNN large", "cnn_large", CNN)]:
         r = load_run(lab, name, base)
         if r is not None:

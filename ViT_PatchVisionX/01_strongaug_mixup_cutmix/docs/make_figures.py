@@ -28,9 +28,9 @@ from matplotlib.animation import FuncAnimation, PillowWriter
 from matplotlib.patches import FancyBboxPatch, Rectangle
 from PIL import Image
 
-ROOT = Path(__file__).resolve().parents[1]      # ViT_PatchVisionX/ (results, docs, code)
-DATA_ROOT = ROOT.parent                          # shared CUB_200_2011/ and DataPreprocessing_Results/
-sys.path.insert(0, str(ROOT))
+ROOT = Path(__file__).resolve().parents[1]      # ViT_PatchVisionX/01_strongaug_mixup_cutmix/ (results, docs)
+DATA_ROOT = ROOT.parents[1]                      # shared CUB_200_2011/ and DataPreprocessing_Results/
+sys.path.insert(0, str(DATA_ROOT / "Vision_Transformer"))   # the shared patchvision package
 
 from patchvision.config import PathsConfig, TrainConfig  # noqa: E402
 from patchvision.data import CUBDataset, build_transforms, load_data_info  # noqa: E402
@@ -51,11 +51,18 @@ NAME = {"full": "full (PatchVision-X)", "base": "base (additions off)"}
 plt.rcParams.update({"font.size": 10, "axes.grid": True, "grid.alpha": 0.25, "axes.spines.top": False,
                      "axes.spines.right": False, "figure.dpi": 100})
 
-PATHS = PathsConfig(root=str(DATA_ROOT), results_dir="ViT_PatchVisionX/results")
+PATHS = PathsConfig(root=str(DATA_ROOT), results_dir="ViT_PatchVisionX/01_strongaug_mixup_cutmix/results")
+BASE_RES = DATA_ROOT / "Vision_Transformer" / "01_strongaug_mixup_cutmix" / "results"   # the plain ViT (base) lives in its own round-01 folder
+
+
+def RD(n):
+    """Run folder: base from the plain-ViT folder, everything else from this folder."""
+    return (BASE_RES if n == "base" else ROOT / "results") / n / "seed42"
+
 INFO = load_data_info(PATHS)
 EV_TF = build_transforms("none", INFO.img_size, INFO.mean, INFO.std, train=False)
-H = {n: pd.read_csv(ROOT / f"results/{n}/seed42/history.csv") for n in ("full", "base")}
-TM = {n: json.loads((ROOT / f"results/{n}/seed42/test_metrics.json").read_text()) for n in ("full", "base")}
+H = {n: pd.read_csv(RD(n) / "history.csv") for n in ("full", "base")}
+TM = {n: json.loads((RD(n) / "test_metrics.json").read_text()) for n in ("full", "base")}
 GRID = INFO.img_size // 16
 
 
@@ -442,7 +449,7 @@ def part_anim_gap():
 
 
 def part_anim_snapshots():
-    files = sorted((ROOT / "results/full/seed42/attention_snapshots").glob("epoch_*.png"))
+    files = sorted((RD("full") / "attention_snapshots").glob("epoch_*.png"))
     files = [f for f in files if f.stem != "epoch_213"]
     imgs = [np.asarray(Image.open(f).convert("RGB").crop((0, 52, 1110, 845)).resize((740, 529))) for f in files]
     fig, ax = plt.subplots(figsize=(7.4, 5.5))
@@ -549,15 +556,15 @@ def part_per_class():
     fig, axes = plt.subplots(1, 2, figsize=(14, 4.6), gridspec_kw={"width_ratios": [1.3, 1]})
     ax = axes[0]
     for n in ("base", "full"):
-        pc = pd.read_csv(ROOT / f"results/{n}/seed42/test_per_class.csv")
+        pc = pd.read_csv(RD(n) / "test_per_class.csv")
         ax.plot(np.arange(200), np.sort(pc.f1.values)[::-1], color=COL[n], lw=2, label=f"{NAME[n]} (median {pc.f1.median():.0f})")
     ax.set_xlabel("species, from easiest to hardest")
     ax.set_ylabel("F1 score (%)")
     ax.set_title("Every one of the 200 species, sorted by how well it is recognised")
     ax.legend()
     ax = axes[1]
-    pc = pd.read_csv(ROOT / "results/full/seed42/test_per_class.csv")
-    conf = np.load(ROOT / "results/full/seed42/test_confusion_matrix.npy").copy()
+    pc = pd.read_csv(RD("full") / "test_per_class.csv")
+    conf = np.load(RD("full") / "test_confusion_matrix.npy").copy()
     np.fill_diagonal(conf, 0)
     top = np.dstack(np.unravel_index(np.argsort(-conf.ravel())[:8], conf.shape))[0]
     labels = [f"{pc.class_name[i]}\n-> {pc.class_name[j]}" for i, j in top][::-1]
@@ -572,7 +579,7 @@ def part_per_class():
 def part_calibration():
     fig, axes = plt.subplots(1, 2, figsize=(10, 4.6))
     for ax, n in zip(axes, ("base", "full")):
-        r = pd.read_csv(ROOT / f"results/{n}/seed42/test_reliability.csv")
+        r = pd.read_csv(RD(n) / "test_reliability.csv")
         ax.plot([0, 1], [0, 1], "k--", lw=1, label="perfect")
         ax.plot(r.confidence, r.accuracy, "o-", color=COL[n], label="model")
         ax.set_xlabel("how sure the model says it is")
@@ -590,7 +597,7 @@ def _models():
     dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     out = {}
     for n in ("base", "full"):
-        m, _ = load_for_inference(ROOT / f"results/{n}/seed42", dev)
+        m, _ = load_for_inference(RD(n), dev)
         out[n] = m
     return out, dev
 
@@ -683,7 +690,7 @@ TRIAL_COL = {"full": "#7f7f7f", "ovf1_droppath0.3": "#1f77b4", "ovf2_wd0.1": "#f
 
 
 def _trial_hist():
-    return {n: pd.read_csv(ROOT / f"results/{n}/seed42/history.csv") for n in TRIAL_RUNS}
+    return {n: pd.read_csv(RD(n) / "history.csv") for n in TRIAL_RUNS}
 
 
 def part_trials():

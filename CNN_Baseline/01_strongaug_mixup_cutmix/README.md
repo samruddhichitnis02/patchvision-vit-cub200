@@ -2,7 +2,7 @@
 
 ![task](https://img.shields.io/badge/task-fine--grained%20classification-blue) ![dataset](https://img.shields.io/badge/dataset-CUB--200--2011-green) ![pretrained](https://img.shields.io/badge/pretrained%20weights-none-red) ![models](https://img.shields.io/badge/models-2%20CNNs-orange) ![status](https://img.shields.io/badge/seeds-1%20of%203-yellow)
 
-This folder is the **CNN side** of the PatchVision study. It trains two ResNet-style CNNs **from scratch** on 5,394 photos (about 27 per species) and measures them exactly like the Vision Transformer in [`../../ViT_PatchVisionX`](../../ViT_PatchVisionX), so the two architectures can be compared fairly. The side-by-side comparison and the overall winner are in the [top-level README](../../README.md); this page documents the CNNs themselves.
+This folder is the **CNN side** of the PatchVision study. It trains two ResNet-style CNNs **from scratch** on 5,394 photos (about 27 per species) and measures them exactly like the Vision Transformer in [`../../Vision_Transformer`](../../Vision_Transformer), so the two architectures can be compared fairly. The side-by-side comparison and the overall winner are in the [top-level README](../../README.md); this page documents the CNNs themselves.
 
 > **Jump to:** [Result in one minute](#1-the-result-in-one-minute) · [The models](#2-the-two-models) · [Training recipe](#3-how-they-were-trained) · [Learning](#4-how-training-went) · [Results](#5-results-in-detail) · [Against the ViT](#6-against-the-vision-transformer) · [Limits](#7-limits) · [Run it](#8-run-it-yourself)
 
@@ -99,7 +99,7 @@ The recipe is deliberately the same as the ViT's `full` run, so differences in t
 
 **Switched off** because they need attention maps or a token grid, which a CNN doesn't have: the bird-box attention loss, the flip-consistency loss, and the box-guided crop. So the CNN never sees the bird bounding boxes.
 
-The data pipeline, optimizer, schedule, EMA, early stopping and metrics are **imported from `../../ViT_PatchVisionX/patchvision`** (via [`cnn/_vit.py`](cnn/_vit.py)), so both studies are measured identically. Nothing in the ViT folder was modified.
+The data pipeline, optimizer, schedule, EMA, early stopping and metrics are **imported from `../../Vision_Transformer/patchvision`** (via [`cnn/_vit.py`](cnn/_vit.py)), so both studies are measured identically. Nothing in the ViT folder was modified.
 
 ---
 
@@ -278,7 +278,7 @@ CNN_Baseline/01_strongaug_mixup_cutmix/
 │   ├── engine.py           training / validation / test loop and everything it saves
 │   ├── experiment.py       one-batch dry run
 │   ├── compare.py          CNN-vs-ViT table and figures
-│   └── _vit.py             makes ../../ViT_PatchVisionX/patchvision importable
+│   └── _vit.py             makes ../../Vision_Transformer/patchvision importable
 ├── docs/
 │   ├── make_figures.py     rebuilds every figure and animation on this page
 │   ├── figures/  animations/  facts.txt

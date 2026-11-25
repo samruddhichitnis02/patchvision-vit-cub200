@@ -64,11 +64,11 @@ flowchart LR
 | Step | What happened | Folder |
 |---|---|---|
 | 1 | Looked at the data, fixed the train/validation/test split, chose augmentation levels | [`DataPreprocessing_Results/`](DataPreprocessing_Results), two notebooks at the repo root |
-| 2 | Built **PatchVision-X** from scratch in PyTorch; trained `base` (extras off) and `full` (extras on) | [`ViT_PatchVisionX/`](ViT_PatchVisionX) |
-| 3 | Four **one-change** regularization trials on top of `full` | [`ViT_PatchVisionX/`](ViT_PatchVisionX) |
+| 2 | Built **PatchVision-X** from scratch in PyTorch; trained `base` (extras off) and `full` (extras on) | [`Vision_Transformer/01_strongaug_mixup_cutmix/`](Vision_Transformer/01_strongaug_mixup_cutmix) (plain ViT `base`), [`ViT_PatchVisionX/01_strongaug_mixup_cutmix/`](ViT_PatchVisionX/01_strongaug_mixup_cutmix) (`full`) |
+| 3 | Four **one-change** regularization trials on top of `full` | [`ViT_PatchVisionX/01_strongaug_mixup_cutmix/`](ViT_PatchVisionX/01_strongaug_mixup_cutmix) |
 | 4 | Built two **CNN baselines** from scratch, trained with the same recipe | [`CNN_Baseline/`](CNN_Baseline) |
 | 5 | Compared everything: accuracy, calibration, cost, per species, significance | this page, [`assets/`](assets) |
-| 6 | **E4**: combine the regularization settings that helped | [`ViT_PatchVisionX/`](ViT_PatchVisionX), [section 7](#7-e4-the-regularization-study) |
+| 6 | **E4**: combine the regularization settings that helped | [`ViT_PatchVisionX/01_strongaug_mixup_cutmix/`](ViT_PatchVisionX/01_strongaug_mixup_cutmix), [section 7](#7-e4-the-regularization-study) |
 
 ### The data (shared by both models)
 
@@ -82,7 +82,7 @@ flowchart LR
 
 The bird bounding boxes that ship with the dataset are **never** given to a model as input. PatchVision-X uses them only as a training-time teaching signal ([section 3](#3-the-two-models-side-by-side)); the CNN does not use them at all.
 
-![Dataset samples](ViT_PatchVisionX/docs/figures/dataset_samples.png)
+![Dataset samples](Vision_Transformer/01_strongaug_mixup_cutmix/docs/figures/dataset_samples.png)
 
 ---
 
@@ -163,7 +163,7 @@ Everything not in the last two rows is identical for all three: same photos, sam
 
 *"Not isolated yet" means the single-ingredient ablations exist in the code but have not been run, so we know only that the combination helps.*
 
-![Where the models look](ViT_PatchVisionX/docs/figures/attention_base_vs_full.png)
+![Where the models look](ViT_PatchVisionX/01_strongaug_mixup_cutmix/docs/figures/attention_base_vs_full.png)
 
 *Eight test photos, evenly spaced (not hand-picked). White rectangle = bird box (never shown to the model). `base` often looks at branches and background; `full` concentrates on the bird.*
 
@@ -275,11 +275,11 @@ Six photos drawn at random from each group:
 
 **PatchVision-X** flip test, EMA effect and attention over training:
 
-![Flip consistency](ViT_PatchVisionX/docs/figures/flip_consistency.png)
-![EMA effect](ViT_PatchVisionX/docs/figures/ema_effect.png)
-![Attention over training](ViT_PatchVisionX/docs/animations/attention_over_training.gif)
+![Flip consistency](ViT_PatchVisionX/01_strongaug_mixup_cutmix/docs/figures/flip_consistency.png)
+![EMA effect](ViT_PatchVisionX/01_strongaug_mixup_cutmix/docs/figures/ema_effect.png)
+![Attention over training](ViT_PatchVisionX/01_strongaug_mixup_cutmix/docs/animations/attention_over_training.gif)
 
-More figures: [`ViT_PatchVisionX/README.md`](ViT_PatchVisionX/README.md) and [`CNN_Baseline/01_strongaug_mixup_cutmix/README.md`](CNN_Baseline/01_strongaug_mixup_cutmix/README.md).
+More figures: [`ViT_PatchVisionX/01_strongaug_mixup_cutmix/README.md`](ViT_PatchVisionX/01_strongaug_mixup_cutmix/README.md) (PatchVision-X), [`Vision_Transformer/01_strongaug_mixup_cutmix/README.md`](Vision_Transformer/01_strongaug_mixup_cutmix/README.md) (plain ViT) and [`CNN_Baseline/01_strongaug_mixup_cutmix/README.md`](CNN_Baseline/01_strongaug_mixup_cutmix/README.md).
 
 </details>
 
@@ -339,7 +339,7 @@ To fight memorizing, four cheap fixes were each applied alone on top of `full` (
 | `ovf3_autoaug` | `strong` → `auto` augmentation | 239 | **2.14** | 50.6 % | 48.5 | 50.26 % | 8.09 % |
 | `ovf4_dropout0.1` | dropout 0 → 0.1 | 253 | 2.23 | 50.8 % | 48.8 | 48.08 % | 5.70 % |
 
-![Trials race](ViT_PatchVisionX/docs/animations/trials_race.gif)
+![Trials race](ViT_PatchVisionX/01_strongaug_mixup_cutmix/docs/animations/trials_race.gif)
 
 **Reading it honestly:** all four lowered validation loss and raised validation accuracy by 2 to 3 points, but **none closed the memorizing gap** (still about 48 to 50 points), and calibration got worse in three of four. The validation set has only 600 photos, so the four are within noise of each other. `ovf1` is not a perfectly fair comparison: it was the only one that ran all 300 epochs. Combining the settings is tested in [section 7](#7-e4-the-regularization-study).
 
@@ -413,7 +413,7 @@ The fair headline comparison is still the one in [section 1](#1-the-result-in-on
 - **Different hardware.** ViT runs (`base`, `full`, the four one-change trials): RTX 4090, PyTorch 2.5.1. CNN runs and the two E4 runs: RTX 5090, PyTorch 2.11. Accuracy is not affected by this in any way we expect, but all timing numbers are.
 - **Small validation set.** 600 photos (3 per species) is a noisy yardstick for picking the best epoch and for comparing the trials.
 - **Test set seen.** We have looked at test results for all runs. Decisions after this point should be made on validation only.
-- **Not the proposal's plain ViT.** The proposal described a textbook ViT (6 blocks, 384 dimensions, class token). We built the stronger PatchVision-X hybrid instead; the `base` run is the nearest "plain" reference but still uses the conv tokenizer and graph attention. The deviation is documented in [`ViT_PatchVisionX/README.md`](ViT_PatchVisionX/README.md#differences-from-the-original-project-proposal).
+- **Not the proposal's plain ViT.** The proposal described a textbook ViT (6 blocks, 384 dimensions, class token). We built the stronger PatchVision-X hybrid instead; the `base` run is the nearest "plain" reference but still uses the conv tokenizer and graph attention. The deviation is documented in [`Vision_Transformer/01_strongaug_mixup_cutmix/README.md`](Vision_Transformer/01_strongaug_mixup_cutmix/README.md#differences-from-the-original-project-proposal).
 - **Unverified GvT detail.** The graph-attention parts follow our reading of an under-specified paper and were not checked line by line against it.
 
 ---
@@ -424,10 +424,13 @@ The fair headline comparison is still the one in [section 1](#1-the-result-in-on
 # data: download CUB-200-2011 into ./CUB_200_2011 (not stored in Git)
 # the split, normalisation and augmentation settings are already in DataPreprocessing_Results/
 
-# ViT (from inside ViT_PatchVisionX/)
+# plain ViT (from inside Vision_Transformer/01_strongaug_mixup_cutmix/)
 python train.py base 42
+
+# PatchVision-X (from inside ViT_PatchVisionX/01_strongaug_mixup_cutmix/)
 python train.py full 42
 python train.py ovf1_droppath0.3 42
+python train.py ovf5_dp0.3_autoaug 42
 
 # CNN (from inside CNN_Baseline/01_strongaug_mixup_cutmix/)
 python train.py cnn_small 42
@@ -446,8 +449,9 @@ patchvision-vit-cub200/
 ├── README.md                          <- this page
 ├── DataPreprocessing_Results/         shared: split files, normalisation, augmentation settings
 ├── patchvision_*_preprocessing.ipynb  shared: data exploration and preparation
-├── ViT_PatchVisionX/                  everything about the Vision Transformer (code, results, its own README)
-├── CNN_Baseline/                      everything about the CNN baselines (code, results, notebook, its own README)
+├── Vision_Transformer/                the plain Vision Transformer: shared code (patchvision/) and one folder per round, each with its own README
+├── ViT_PatchVisionX/                  PatchVision-X: one folder per round (01_strongaug_mixup_cutmix: full, trials, E4), each with its own README
+├── CNN_Baseline/                      everything about the CNN baselines: one folder per round, each with its own README
 └── assets/                            figures, animations and tables for this page, plus make_assets.py
 ```
 
