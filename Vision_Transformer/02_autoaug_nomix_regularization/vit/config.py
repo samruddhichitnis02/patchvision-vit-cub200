@@ -72,7 +72,11 @@ RUNS: Dict[str, Tuple[Dict[str, Any], Dict[str, Any]]] = {
 
 # r8_combined: filled in after r0-r7, with the same rule as the CNNs (a change counts as a winner only if it beat
 # r0 on validation by more than one photo; one value per setting).
-COMBINED: Dict[str, Tuple[Dict[str, Any], Dict[str, Any]]] = {}
+COMBINED: Dict[str, Tuple[Dict[str, Any], Dict[str, Any]]] = {
+    # r2 drop-path 0.4 (+21 val photos; ties r3 0.5, tie goes to the smaller change), r4 label smoothing 0.2 (+4),
+    # r6 weight decay 0.2 (+7). Not included: r5 weight decay 0.1 (-7), r7 SAM (-9).
+    "vit_base": ({"drop_path": 0.4}, {"label_smoothing": 0.2, "weight_decay": 0.2}),
+}
 
 
 def _build(cls, d: Dict[str, Any]):
