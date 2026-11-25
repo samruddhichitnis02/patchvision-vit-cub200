@@ -1,6 +1,6 @@
 # Vision Transformer, round 02: `auto` augmentation, no Mixup/CutMix, and a regularization search
 
-![task](https://img.shields.io/badge/task-fine--grained%20classification-blue) ![dataset](https://img.shields.io/badge/dataset-CUB--200--2011-green) ![pretrained](https://img.shields.io/badge/pretrained%20weights-none-red) ![model](https://img.shields.io/badge/model-plain%20ViT%204.31M-orange) ![runs](https://img.shields.io/badge/runs-8%20of%209-yellow) ![seeds](https://img.shields.io/badge/seeds-1%20of%203-yellow)
+![task](https://img.shields.io/badge/task-fine--grained%20classification-blue) ![dataset](https://img.shields.io/badge/dataset-CUB--200--2011-green) ![pretrained](https://img.shields.io/badge/pretrained%20weights-none-red) ![model](https://img.shields.io/badge/model-plain%20ViT%204.31M-orange) ![runs](https://img.shields.io/badge/runs-9%20of%209-brightgreen) ![seeds](https://img.shields.io/badge/seeds-1%20of%203-yellow)
 
 Round 01 ([`../01_strongaug_mixup_cutmix`](../01_strongaug_mixup_cutmix)) trained a plain Vision Transformer **from scratch** on 5,394 photos (about 27 per species) and found that it **memorizes** its training photos: about 100 % right on them, 42 % on new ones. This round asks: **which training changes reduce that memorizing, without hurting accuracy?**
 
@@ -12,23 +12,23 @@ It changes the base recipe (one augmentation operation at a time, no photo mixin
 
 ## 1. The result in one minute
 
-| | Round 01 (`base`) | Round 02 r0 | **Round 02 best: r2 drop-path 0.4** |
-|---|---|---|---|
-| Recipe | `strong` aug + Mixup/CutMix, early stopping, no EMA | `auto` aug, no mixing, 300 epochs, EMA | r0 + drop-path 0.4 |
-| Validation top-1 | 42.33 % | 39.17 % | **42.67 %** |
-| **Test top-1** | **39.52 %** | 36.24 % | **39.30 %** |
-| Test top-5 | **65.12 %** | 61.81 % | 63.48 % |
-| Test macro-F1 | **39.12 %** | 35.68 % | 38.72 % |
-| Memorizing gap | 59.8 pts | 61.3 pts | **57.3 pts** |
-| Calibration error (ECE) | **2.49 %** | 11.08 % | 7.25 % |
+| | Round 01 (`base`) | Round 02 r0 | Round 02 best single change: r2 | **Round 02 final: r8 combined** |
+|---|---|---|---|---|
+| Recipe | `strong` aug + Mixup/CutMix, early stopping, no EMA | `auto` aug, no mixing, 300 epochs, EMA | r0 + drop-path 0.4 | r0 + drop-path 0.4 + label smoothing 0.2 + weight decay 0.2 |
+| Validation top-1 | 42.33 % | 39.17 % | 42.67 % | **43.00 %** |
+| **Test top-1** | 39.52 % | 36.24 % | 39.30 % | **42.03 %** |
+| Test top-5 | 65.12 % | 61.81 % | 63.48 % | **67.16 %** |
+| Test macro-F1 | 39.12 % | 35.68 % | 38.72 % | **41.43 %** |
+| Memorizing gap | 59.8 pts | 61.3 pts | **57.3 pts** | 58.0 pts |
+| Calibration error (ECE) | **2.49 %** | 11.08 % | 7.25 % | 3.76 % |
 
-One seed (42), 5,794 unseen test photos, sampling noise about ±1.3 points. "Best" = the run with the best **validation** accuracy; r2 and r3 tie (42.67 %), and the tie goes to the smaller change. r8 (the winners combined) is not run yet.
+One seed (42), 5,794 unseen test photos, sampling noise about ±1.3 points. The final run is the one with the best **validation** accuracy: r8 (43.00 %).
 
 1. **The new base recipe hurt the ViT.** Round 02 r0 is 3.3 test points **below** round 01 (only r0 right on 490 photos, only round 01 right on 679; p < 0.0001). Removing Mixup/CutMix cost the ViT accuracy.
-2. **Drop-path is the one change that clearly helps:** +3.5 validation and +3.0 test points (0.4 and 0.5), significant on the test photos (p < 0.0001). It also gives the smallest gap.
-3. **The best run only gets back to round 01's level:** 39.30 % against 39.52 % (566 vs 581 photos, p = 0.68, no real difference), with a gap 2.5 points smaller.
-4. **SAM and weight decay 0.1 hurt;** label smoothing 0.2 and weight decay 0.2 help a little on validation but not on test.
-5. **Memorizing is not solved:** every run reaches about 100 % on the training photos; the gap stays between 57 and 63 points.
+2. **Drop-path is the one single change that clearly helps:** +3.5 validation and +3.0 test points (0.4 and 0.5), significant on the test photos (p < 0.0001). On its own it only gets back to round 01's level (39.30 % against 39.52 %, p = 0.68).
+3. **The winners combined (r8) beat everything:** 42.03 % test top-1, **+2.5 points above round 01** (only r8 right on 641 photos, only round 01 right on 496; p < 0.0001), +2.7 above r2 (p < 0.0001) and +5.8 above r0.
+4. **SAM and weight decay 0.1 hurt;** label smoothing 0.2 and weight decay 0.2 do little alone, but add to drop-path in r8.
+5. **Memorizing is not solved:** every run reaches about 100 % on the training photos; the gap stays between 57 and 63 points (r8: 58.0).
 
 ![Round 01 vs round 02](docs/figures/vit_07_round01_vs_round02.png)
 
@@ -167,15 +167,15 @@ Rules: **one seed (42)**; winners are picked on **validation only** (600 photos)
 |---|---|---|---|---|---|---|---|---|---|
 | r0_reference | nothing (new base recipe) | 141 | 39.17 % | | 61.3 | 36.24 % | 61.81 % | 35.68 % | 11.08 % |
 | r1_droppath0.2 | drop-path 0.1 → 0.2 | 99 | 40.17 % | +6 | 57.8 | 37.33 % | 63.96 % | 37.02 % | 9.46 % |
-| **r2_droppath0.4** | drop-path 0.1 → 0.4 | 299 | **42.67 %** | **+21** | 57.3 | **39.30 %** | 63.48 % | **38.72 %** | 7.25 % |
-| r3_droppath0.5 | drop-path 0.1 → 0.5 | 258 | **42.67 %** | **+21** | **57.2** | 38.97 % | **65.88 %** | 38.54 % | 9.41 % |
+| r2_droppath0.4 | drop-path 0.1 → 0.4 | 299 | 42.67 % | +21 | 57.3 | 39.30 % | 63.48 % | 38.72 % | 7.25 % |
+| r3_droppath0.5 | drop-path 0.1 → 0.5 | 258 | 42.67 % | +21 | **57.2** | 38.97 % | 65.88 % | 38.54 % | 9.41 % |
 | r4_labelsmooth0.2 | label smoothing 0.1 → 0.2 | 205 | 39.83 % | +4 | 60.2 | 36.24 % | 61.49 % | 35.64 % | **2.61 %** |
 | r5_wd0.1 | weight decay 0.05 → 0.1 | 233 | 38.00 % | −7 | 62.3 | 35.61 % | 59.86 % | 34.88 % | 4.47 % |
 | r6_wd0.2 | weight decay 0.05 → 0.2 | 137 | 40.33 % | +7 | 60.3 | 36.90 % | 62.46 % | 36.44 % | 10.18 % |
 | r7_sam | SAM optimizer (rho 0.05) | 122 | 37.67 % | −9 | 63.0 | 34.28 % | 59.99 % | 33.84 % | 10.42 % |
-| r8_combined | winners of r1 to r7 combined | *pending* | | | | | | | |
+| **r8_combined** | drop-path 0.4 + label smoothing 0.2 + weight decay 0.2 | 268 | **43.00 %** | **+23** | 58.0 | **42.03 %** | **67.16 %** | **41.43 %** | 3.76 % |
 
-*Gap = accuracy on augmentation-free training photos minus validation accuracy, at the chosen epoch. ECE = calibration error, lower is better. 1 validation photo = 0.17 points. Every run: 300 epochs, about 80 minutes on the RTX 5090 (15.9 s per epoch); SAM 146 minutes (29.2 s per epoch). Tables: [`docs/tables/`](docs/tables).*
+*Gap = accuracy on augmentation-free training photos minus validation accuracy, at the chosen epoch. ECE = calibration error, lower is better. 1 validation photo = 0.17 points. Every run: 300 epochs, about 80 minutes on the RTX 5090 (15.9 to 16.4 s per epoch); SAM 146 minutes (29.2 s per epoch). Tables: [`docs/tables/`](docs/tables).*
 
 ![Every run against r0](docs/figures/vit_01_overview.png)
 
@@ -192,6 +192,7 @@ Each run against r0, on the 5,794 test photos (exact McNemar test):
 | r5 weight decay 0.1 | −0.66 | 372 | 410 | 0.19 | no difference |
 | r6 weight decay 0.2 | +0.66 | 375 | 337 | 0.17 | no difference |
 | r7 SAM | −1.98 | 362 | 477 | **0.0001** | worse |
+| **r8 combined** | **+5.76** | 636 | 302 | **< 0.0001** | better |
 
 This shows the differences are not caused by which test photos happened to be drawn. It does **not** show they survive a different random seed; that needs the three-seed runs.
 
@@ -199,7 +200,7 @@ This shows the differences are not caused by which test photos happened to be dr
 
 ![Gap vs accuracy](docs/figures/vit_02_gap_vs_accuracy.png)
 
-The goal is up and to the left. **Drop-path 0.4 and 0.5 are the only runs clearly there:** +3.5 validation points and a gap 4 points smaller than r0. Label smoothing 0.2 and weight decay 0.2 move a little up and left. Weight decay 0.1 and SAM move down and right: less accurate and more memorizing.
+The goal is up and to the left. **r8 is the highest point**, with drop-path 0.4 and 0.5 just below it: about +3.5 to +3.8 validation points and a gap 3 to 4 points smaller than r0. Label smoothing 0.2 and weight decay 0.2 move a little up and left. Weight decay 0.1 and SAM move down and right: less accurate and more memorizing.
 
 ### How strong should each setting be?
 
@@ -216,9 +217,9 @@ The goal is up and to the left. **Drop-path 0.4 and 0.5 are the only runs clearl
 ![Learning curves, every run](docs/figures/vit_04_learning_curves.png)
 
 What the four panels show:
-* **Validation top-1 (top left):** most runs flatten at 37 to 40 % after about epoch 100. Only drop-path 0.4 and 0.5 keep climbing until the end (r2's best epoch is 299, r3's 258). SAM peaks early and then declines.
-* **Validation loss (top right):** every run reaches its lowest validation loss between epochs 68 and 112 and then rises. The drop-path 0.4 and 0.5 runs go lowest (2.65) and rise least (to 2.82 and 2.77 at epoch 300, against 3.05 for r0).
-* **Training photos (bottom left):** every run reaches 99 % on clean training photos, between epoch 100 (r0, label smoothing, weight decay 0.1) and epoch 150 (drop-path 0.5). Drop-path slows memorizing down but does not stop it.
+* **Validation top-1 (top left):** most runs flatten at 37 to 40 % after about epoch 100. Only the runs with drop-path 0.4 or 0.5 keep climbing until the end (r2's best epoch is 299, r3's 258, r8's 268). SAM peaks early and then declines.
+* **Validation loss (top right):** every run reaches its lowest validation loss between epochs 68 and 112 and then rises. r8 goes lowest (2.63 at epoch 110) and, with r3, rises least (to 2.76 at epoch 300, against 3.05 for r0).
+* **Training photos (bottom left):** every run reaches 99 % on clean training photos, between epoch 100 (r0, label smoothing, weight decay 0.1) and epoch 150 (drop-path 0.5); r8 at epoch 135. Drop-path slows memorizing down but does not stop it.
 * **Gap (bottom right):** it climbs to about 60 points by epoch 100 and stays there; at epoch 300 it ranges from 57 (drop-path) to 65 (SAM).
 
 ![Race](docs/animations/vit_race.gif)
@@ -235,60 +236,61 @@ Evaluating the slow-moving average of the weights instead of the latest weights 
 
 ## 7. The best run in detail
 
-r2 (drop-path 0.4), the run chosen on validation.
+r8 (drop-path 0.4 + label smoothing 0.2 + weight decay 0.2), the run chosen on validation.
 
-| | r2 drop-path 0.4 |
+| | r8 combined |
 |---|---|
-| **Test top-1** | **39.30 %** |
-| Test top-5 | 63.48 % |
-| Test macro-F1 | 38.72 % |
-| Validation top-1 at the chosen epoch | 42.67 % |
-| Memorizing gap | 57.3 pts |
-| Calibration error (ECE) | 7.25 % |
-| Chosen epoch / epochs run | 299 / 300 |
-| Training time (RTX 5090) | 80 min |
+| **Test top-1** | **42.03 %** |
+| Test top-5 | 67.16 % |
+| Test macro-F1 | 41.43 % |
+| Validation top-1 at the chosen epoch | 43.00 % |
+| Memorizing gap | 58.0 pts |
+| Calibration error (ECE) | 3.76 % |
+| Chosen epoch / epochs run | 268 / 300 |
+| Training time (RTX 5090) | 82 min (16.3 s per epoch) |
+| Parameters / compute / latency (batch 1) | 4.31 M / 1.55 GFLOPs / 15.8 ms |
 
 ### Did it improve on round 01?
 
 ![Did it improve](docs/figures/vit_08_did_it_improve.png)
 
-No. On the same test photos, only r2 is right on 566 and only round 01 on 581 (p = 0.68). Species by species it is a draw: 99 species better, 98 worse, 3 unchanged, median change 0.0. The biggest gains are American Goldfinch (+25) and Frigatebird (+23); the biggest losses Least Auklet (−30) and Pileated Woodpecker (−24).
+Yes. On the same test photos, only r8 is right on 641 and only round 01 on 496 (+2.5 points, p < 0.0001). Species by species: 120 species better, 78 worse, 2 unchanged, median change +3.3 F1 points. The biggest gains are Frigatebird (+28), American Goldfinch (+26) and Yellow breasted Chat (+24); the biggest losses Pileated Woodpecker (−23), Marsh Wren (−20) and Least Auklet (−17).
 
 ### Are the confidence numbers honest?
 
 ![Calibration](docs/figures/vit_06_calibration.png)
 
-* Most round-02 runs are **over-confident** (curves below the diagonal): r0 has an ECE of 11.1 %, against 2.5 % in round 01. A likely reason: Mixup/CutMix train on blended labels, which keeps confidence down; without them that effect is gone. r2 is said to be 46.5 % sure on average while it is right 39.3 % of the time.
-* **Label smoothing 0.2** is the exception: ECE 2.6 %, slightly under-confident.
+* Most round-02 runs are **over-confident** (curves below the diagonal): r0 has an ECE of 11.1 %, against 2.5 % in round 01. A likely reason: Mixup/CutMix train on blended labels, which keeps confidence down; without them that effect is gone.
+* **Label smoothing 0.2** brings it back: r4 has an ECE of 2.6 % and r8 3.8 %. r8 is slightly **under-confident**: it is 38.3 % sure on average while it is right 42.0 % of the time.
 
 ### Which species are easy and which are hard?
 
 ![Species](docs/figures/vit_09_species.png)
 
-| | r2 drop-path 0.4 |
+| | r8 combined |
 |---|---|
-| Median species F1 | 38.3 |
-| Species with F1 above 80 | 0 |
-| Species with F1 below 20 | 31 |
+| Median species F1 | 41.4 |
+| Species with F1 above 80 | 2 |
+| Species with F1 below 20 | 30 |
 | Species never recognised (F1 = 0) | 0 |
 
-* **Easiest:** Red cockaded Woodpecker (79.3), Painted Bunting (76.4), Yellow headed Blackbird (75.9), Evening Grosbeak (74.6), Green Jay (73.1): strong, unique colours or patterns.
-* **Hardest:** Least Flycatcher (4.1), Western Wood Pewee (7.7), White necked Raven (8.5), Song Sparrow (10.0), Gray Kingbird (10.5): plain brown, grey or black birds with close look-alikes.
+* **Easiest:** Green Jay (82.1), Painted Bunting (81.4), Common Yellowthroat (80.0), Evening Grosbeak (78.7), Magnolia Warbler (77.2): strong, unique colours or patterns.
+* **Hardest:** Least Flycatcher (3.3), Western Wood Pewee (3.4), Marsh Wren (7.5), American Crow (7.8), White necked Raven (8.5): plain brown, grey or black birds with close look-alikes.
 
 ### What does the model confuse?
 
 ![Confusions](docs/figures/vit_10_confusions.png)
 
-The most common mistakes are between close relatives: **Eared Grebe → Horned Grebe** (9 of 30 photos), **Great Grey Shrike → Loggerhead Shrike**, **California Gull → Glaucous winged Gull**, **Herring Gull → Western Gull**, **Black footed → Sooty Albatross**, **Elegant → Caspian Tern**, **Forsters → Common Tern**.
+The most common mistakes are between close relatives: **Great Crested Flycatcher → Tropical Kingbird** (9 photos), **Common Tern → Forsters Tern**, **Great Grey Shrike → Loggerhead Shrike**, **American Crow → Common Raven** (8 each), **Eared Grebe → Horned Grebe**, **Vesper Sparrow → Savannah Sparrow** (7 each).
 
 <details>
 <summary><b>Each run's own plots, as saved by the trainer (click to open)</b></summary>
 
-Every run folder `results/vit_base/<run>/seed42/` has `curves.png`, `test_confusion_matrix.png` and `test_reliability.png`. The best run:
+Every run folder `results/vit_base/<run>/seed42/` has `curves.png`, `test_confusion_matrix.png` and `test_reliability.png`. The final run:
 
-![r2 curves](results/vit_base/r2_droppath0.4/seed42/curves.png)
-![r2 confusion matrix](results/vit_base/r2_droppath0.4/seed42/test_confusion_matrix.png)
-![r2 reliability](results/vit_base/r2_droppath0.4/seed42/test_reliability.png)
+![r8 curves](results/vit_base/r8_combined/seed42/curves.png)
+![r8 confusion matrix](results/vit_base/r8_combined/seed42/test_confusion_matrix.png)
+![r8 reliability](results/vit_base/r8_combined/seed42/test_reliability.png)
 
 </details>
 
@@ -296,16 +298,29 @@ Every run folder `results/vit_base/<run>/seed42/` has `curves.png`, `test_confus
 
 ## 8. Round 3: r8, the winners combined
 
-**Not run yet.** By the rule (beat r0 on validation by more than one photo, one value per setting), the proposed winners are:
+By the rule (beat r0 on validation by more than one photo, one value per setting), the winners are:
 
-| Setting | Value | Validation vs r0 | In r8? |
-|---|---|---|---|
-| Drop-path | **0.4** | +21 photos (0.5 ties at +21; the tie goes to the smaller change) | yes |
-| Label smoothing | **0.2** | +4 photos | yes |
-| Weight decay | **0.2** | +7 photos (0.1: −7) | yes |
-| SAM | off | −9 photos | no |
+| Setting | Value | Validation vs r0 (alone) | Test vs r0 (alone) | In r8? |
+|---|---|---|---|---|
+| Drop-path | **0.4** | +21 photos (0.5 ties at +21; the tie goes to the smaller change) | +3.00 | yes |
+| Label smoothing | **0.2** | +4 photos | +0.02 | yes |
+| Weight decay | **0.2** | +7 photos (0.1: −7) | +0.66 | yes |
+| SAM | off | −9 photos | −1.98 | no |
 
-r8 = drop-path 0.4 + label smoothing 0.2 + weight decay 0.2 (about 80 minutes). It is added to `COMBINED` in [`vit/config.py`](vit/config.py) once approved.
+r8 = drop-path 0.4 + label smoothing 0.2 + weight decay 0.2.
+
+| Paired test on the test photos | Change, test top-1 | Only r8 right | Only the other right | p |
+|---|---|---|---|---|
+| r8 vs r0 | **+5.76** | 636 | 302 | < 0.0001 |
+| r8 vs r2 (best single change) | **+2.75** | 468 | 308 | < 0.0001 |
+| r8 vs round 01 | **+2.50** | 641 | 496 | < 0.0001 |
+
+* **The winners add up on test, not on validation.** On validation r8 is +23 photos against +32 for the three changes summed; on test it is +5.76 points against +3.68 summed. The 600 validation photos are too few to show small gains clearly; the 5,794 test photos show that label smoothing and weight decay add about 2.7 points on top of drop-path.
+* **r8 is the final plain-ViT recipe of round 02** and the first round-02 run to beat round 01.
+* **Calibration also improves:** ECE 3.76 % against 7.25 % for r2, thanks to label smoothing 0.2.
+* **The gap does not shrink further:** 58.0 points, about the same as r2 (57.3).
+
+The exact settings are in [`vit/config.py`](vit/config.py) (`COMBINED`) and in [`results/vit_base/r8_combined/seed42/config.json`](results/vit_base/r8_combined/seed42/config.json).
 
 ---
 
@@ -322,27 +337,31 @@ The CNNs went through exactly the same round 02 ([`../../CNN_Baseline/02_autoaug
 | r5 weight decay 0.1 | −1.17 | +2.00 | +1.84 |
 | r6 weight decay 0.2 | +1.17 | **+3.33** | **+4.67** |
 | r7 SAM | −1.50 | +0.16 | +1.50 |
+| **r8 combined** | **+3.83** | **+4.00** | **+4.67** |
 
 | | Plain ViT | CNN small | CNN large |
 |---|---|---|---|
 | Parameters | 4.31 M | 4.22 M | 11.28 M |
 | r0 test top-1 | 36.24 % | 43.75 % | 46.03 % |
-| Best test top-1 so far | 39.30 % (r2) | 47.65 % (r8) | 51.52 % (r8) |
+| **Final test top-1 (r8)** | **42.03 %** | **47.65 %** | **51.52 %** |
 | Round 01 test top-1 | 39.52 % | 43.65 % | 45.86 % |
+| Gain over round 01 | +2.51 | +4.00 | +5.66 |
 
-* **The two architectures need opposite things.** Drop-path is the ViT's best change and hurts the CNNs at 0.4 and 0.5; weight decay 0.2 is the CNNs' best change and does little for the ViT.
+* **The two architectures need opposite things.** Drop-path is the ViT's best change and hurts the CNNs at 0.4 and 0.5; weight decay 0.2 is the CNNs' best change and does little for the ViT alone.
+* **Combining the winners helps all three models about equally** on validation (+3.8 to +4.7 points over each model's own r0).
 * **Removing Mixup/CutMix hurt only the ViT:** the CNNs' r0 matched their round 01, the ViT's r0 is 3.3 points below.
-* **The gap to the CNNs grew:** the plain ViT is now 8.4 points behind the CNN of the same size (round 01: 4.1).
+* **The gap to the CNNs grew:** the plain ViT is now 5.6 points behind the CNN of the same size (round 01: 4.1), because the CNNs gained more from round 02.
 
 ---
 
 ## 10. What we learned
 
 * **For a ViT trained from scratch on this little data, Mixup/CutMix matters.** Removing it cost 3.3 test points; the CNNs lost nothing.
-* **Drop-path is the regularizer that suits the ViT:** +3 test points at 0.4, and the only change that keeps validation accuracy rising until epoch 300.
-* **The search only recovers round 01's level** (39.30 % against 39.52 %). The new recipe plus the best single change is a draw with the old recipe.
-* **Regularization slows memorizing but does not stop it:** every run reaches about 100 % on training photos; the best gap is 57 points.
-* **Without Mixup/CutMix the ViT becomes over-confident** (ECE 7 to 11 % against 2.5 %); label smoothing 0.2 fixes that (2.6 %).
+* **Drop-path is the regularizer that suits the ViT:** +3 test points at 0.4, and the only single change that keeps validation accuracy rising until epoch 300.
+* **One change is not enough; the combination is.** Drop-path alone only recovers round 01's level (39.30 % against 39.52 %); drop-path + label smoothing 0.2 + weight decay 0.2 reaches **42.03 %**, +2.5 points above round 01 (p < 0.0001).
+* **Small gains hide on a small validation set.** Label smoothing and weight decay looked useless alone, but added about 2.7 test points in r8.
+* **Regularization slows memorizing but does not stop it:** every run reaches about 100 % on training photos; the best gap is 57 to 58 points.
+* **Without Mixup/CutMix the ViT becomes over-confident** (ECE 7 to 11 % against 2.5 %); label smoothing 0.2 fixes that (r4 2.6 %, r8 3.8 %).
 * **SAM hurts the ViT** (−2 test points, significant), although it helped CNN large.
 
 ---
@@ -350,7 +369,7 @@ The CNNs went through exactly the same round 02 ([`../../CNN_Baseline/02_autoaug
 ## 11. Limits
 
 - **One seed.** Every number is seed 42; seeds 43 and 44 are not run.
-- **r8 not run.** The combined recipe is proposed but untested; the gains may not add up.
+- **The r8 gain over the single changes is seen on test, not on validation.** r8 was chosen by the rule fixed in advance, but its margin on validation is small (+2 photos over r2 and r3).
 - **Small validation set.** 600 photos (3 per species) choose the best epoch and the winners. r2 and r3 tie exactly; one photo is 0.17 points.
 - **Different settings than round 01 in more than one way.** Round 02 changes augmentation, Mixup/CutMix, stopping and EMA at once, so the r0 drop cannot be pinned on one of them (the CNN results point at Mixup/CutMix, since the CNNs used EMA in both rounds).
 - **Different hardware.** Round 02: RTX 5090, PyTorch 2.11; round 01: RTX 4090, PyTorch 2.5.1. Accuracy should be unaffected; times are not comparable.
@@ -367,6 +386,7 @@ Run everything from inside this folder. The code is imported from `../patchvisio
 cd Vision_Transformer/02_autoaug_nomix_regularization
 python train.py vit_base r0_reference 42             # one run
 python run_queue.py vit_base                         # r0 to r7, one after another
+python run_queue.py vit_base r8_combined             # r8, the winners combined
 python watch_training.py vit_base r0_reference 42    # live monitor, in a second terminal
 python docs/make_figures.py                          # rebuild the result figures, tables and race
 python docs/make_augmentation_figures.py             # rebuild the augmentation figures
@@ -383,9 +403,9 @@ sys.path.insert(0, ".")                                   # run from inside Visi
 from vit.config import get_experiment
 from vit.model import build_model
 
-exp = get_experiment("vit_base", "r2_droppath0.4")
+exp = get_experiment("vit_base", "r8_combined")
 model = build_model(exp.model)
-ck = torch.load("results/vit_base/r2_droppath0.4/seed42/best_model.pt", map_location="cpu", weights_only=False)
+ck = torch.load("results/vit_base/r8_combined/seed42/best_model.pt", map_location="cpu", weights_only=False)
 model.load_state_dict(ck["state"])                        # the EMA weights of the chosen epoch
 model.eval()
 # model(x) takes a normalised (B, 3, 224, 224) tensor and returns (B, 200) species scores
@@ -398,7 +418,7 @@ model.eval()
 ```
 Vision_Transformer/02_autoaug_nomix_regularization/
 ├── README.md                     this page
-├── train.py                      one run:  python train.py vit_base r2_droppath0.4 42
+├── train.py                      one run:  python train.py vit_base r8_combined 42
 ├── run_queue.py                  several runs one after another
 ├── watch_training.py             live monitor
 ├── vit/
