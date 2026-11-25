@@ -1,0 +1,26 @@
+EMA gain r0 after ep50 mean 2.06 max 6.50
+round01 base: test 39.52 top5 65.12 f1 39.12 gap 59.8 ece 2.49 val 42.33
+best r2_droppath0.4 vs round01: diff -0.26 n10 566 n01 581 p 0.679; species better 99 worse 98 same 3 median +0.00
+r0 vs round01: diff -3.26 n10 490 n01 679 p 3.6e-08
+r2_droppath0.4 species: median 38.3; >80 0; <20 31; =0 0
+easiest: Red cockaded Woodpecker 79.3, Painted Bunting 76.4, Yellow headed Blackbird 75.9, Evening Grosbeak 74.6, Green Jay 73.1, Common Yellowthroat 72.7, Cerulean Warbler 72.4, White breasted Kingfisher 72.4, American Redstart 72.4, Red headed Woodpecker 71.9
+hardest: Least Flycatcher 4.1, Western Wood Pewee 7.7, White necked Raven 8.5, Song Sparrow 10.0, Gray Kingbird 10.5, House Sparrow 11.1, Tennessee Warbler 11.5, Clay colored Sparrow 11.5, Black Tern 11.8, Marsh Wren 13.1
+confusions: Eared Grebe → Horned Grebe 9; Great Grey Shrike → Loggerhead Shrike 8; California Gull → Glaucous winged Gull 7; Herring Gull → Western Gull 6; Ivory Gull → Ring billed Gull 6; Black footed Albatross → Sooty Albatross 6; Elegant Tern → Caspian Tern 6; Pomarine Jaeger → Black footed Albatross 6; Ringed Kingfisher → Green Kingfisher 6; Long tailed Jaeger → Pomarine Jaeger 6; Vermilion Flycatcher → Scarlet Tanager 6; Forsters Tern → Common Tern 6
+r2_droppath0.4 mean confidence 46.5
+r0_reference: val 39.17 gap 61.3 test 36.24 top5 61.81 f1 35.68 ece 11.08 best_ep 141 79 min 15.9 s/ep
+r1_droppath0.2: val 40.17 gap 57.8 test 37.33 top5 63.96 f1 37.02 ece 9.46 best_ep 99 79 min 15.9 s/ep
+r2_droppath0.4: val 42.67 gap 57.3 test 39.30 top5 63.48 f1 38.72 ece 7.25 best_ep 299 80 min 15.9 s/ep
+r3_droppath0.5: val 42.67 gap 57.2 test 38.97 top5 65.88 f1 38.54 ece 9.41 best_ep 258 82 min 16.4 s/ep
+r4_labelsmooth0.2: val 39.83 gap 60.2 test 36.24 top5 61.49 f1 35.64 ece 2.61 best_ep 205 80 min 15.9 s/ep
+r5_wd0.1: val 38.00 gap 62.3 test 35.61 top5 59.86 f1 34.88 ece 4.47 best_ep 233 80 min 16.0 s/ep
+r6_wd0.2: val 40.33 gap 60.3 test 36.90 top5 62.46 f1 36.44 ece 10.18 best_ep 137 80 min 16.0 s/ep
+r7_sam: val 37.67 gap 63.0 test 34.28 top5 59.99 f1 33.84 ece 10.42 best_ep 122 146 min 29.2 s/ep
+r0_reference: lowest val loss 2.825 @ 71, final 3.051; clean >=99 first @ 100; final clean 99.8; final gap 63.0
+r1_droppath0.2: lowest val loss 2.759 @ 84, final 2.927; clean >=99 first @ 120; final clean 100.0; final gap 60.0
+r2_droppath0.4: lowest val loss 2.653 @ 112, final 2.824; clean >=99 first @ 125; final clean 100.0; final gap 57.3
+r3_droppath0.5: lowest val loss 2.654 @ 93, final 2.767; clean >=99 first @ 150; final clean 99.8; final gap 58.0
+r4_labelsmooth0.2: lowest val loss 2.821 @ 71, final 3.056; clean >=99 first @ 100; final clean 100.0; final gap 62.2
+r5_wd0.1: lowest val loss 2.769 @ 68, final 3.043; clean >=99 first @ 100; final clean 100.0; final gap 62.8
+r6_wd0.2: lowest val loss 2.749 @ 69, final 3.066; clean >=99 first @ 105; final clean 99.8; final gap 62.0
+r7_sam: lowest val loss 2.822 @ 69, final 3.128; clean >=99 first @ 105; final clean 100.0; final gap 64.7
+final run (validation rule): r2_droppath0.4
