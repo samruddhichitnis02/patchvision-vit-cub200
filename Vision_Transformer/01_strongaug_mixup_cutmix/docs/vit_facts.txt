@@ -1,0 +1,14 @@
+lowest val loss 2.715 @ 114; final val loss 2.900
+clean-train final 99.8; max 100.0
+gap at chosen epoch (test_metrics) 59.8; final gap 58.5
+best val 42.33 @ 186
+clean-train first >= 90%: epoch 110
+clean-train first >= 99%: epoch 155
+median F1 38.4; >80: 1; <20: 31; ==0: 1
+best: Green Violetear 80.6, Cerulean Warbler 79.4, Pileated Woodpecker 78.6, Green Jay 76.9, Red headed Woodpecker 76.4, Red bellied Woodpecker 75.8, Painted Bunting 73.7, Evening Grosbeak 72.7, Purple Finch 72.7, Heermann Gull 71.2
+worst: Least Flycatcher 0.0, Western Wood Pewee 3.9, American Crow 6.3, Black Tern 7.4, Clay colored Sparrow 7.5, Orange crowned Warbler 9.1, Mockingbird 9.3, Bank Swallow 9.6, Fish Crow 10.0, Herring Gull 10.7
+top confusions: Red eyed Vireo → Warbling Vireo 9; Frigatebird → Long tailed Jaeger 7; Florida Jay → Blue Jay 7; Loggerhead Shrike → Great Grey Shrike 7; Anna Hummingbird → Ruby throated Hummingbird 7; Red cockaded Woodpecker → American Three toed Woodpecker 7; Indigo Bunting → Blue Grosbeak 7; Cardinal → Vermilion Flycatcher 7; Cardinal → Summer Tanager 7; Artic Tern → Common Tern 7; Philadelphia Vireo → Warbling Vireo 7; Eared Grebe → Horned Grebe 6
+mean confidence 37.1; acc 39.52; share conf>0.5 27.1; acc when conf>0.5 74.4
+in-box attention test 0.360; box area frac val 0.342
+gate mean last 0.500; gate sparsity last 0.0083
+time 48.4 min; 11.81 s/epoch
