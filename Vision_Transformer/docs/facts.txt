@@ -1,0 +1,11 @@
+round02 vs round01: +2.50, 641/496, p=1.9e-05; r1 39.52 r2 42.03; top5 65.12->67.16; f1 39.12->41.43; gap 59.8->58.0; ece 2.49->3.76; val 42.33->43.00; epochs 246->300; best ep 186->268; min 48.4->81.6
+step round01 -> r0_reference: -3.28, 490/679, p=3.6e-08; gap 59.8->61.3
+step r0_reference -> r2_droppath0.4: +3.05, 498/324, p=1.4e-09; gap 61.3->57.3
+step r2_droppath0.4 -> r8_combined: +2.73, 468/308, p=1e-08; gap 57.3->58.0
+round01: min val loss 2.715 @ 114, last val loss 2.900, clean>=99 first @ 155, last clean 99.8, last gap 59.5
+round02: min val loss 2.630 @ 110, last val loss 2.764, clean>=99 first @ 135, last clean 100.0, last gap 57.7
+round 01: mean confidence 37.1, accuracy 39.52, ECE 2.49
+round 02: mean confidence 38.3, accuracy 42.03, ECE 3.76
+r0: mean confidence 47.3, ECE 11.08
+species: up 120, down 78, same 2, median +3.26; median F1 38.4->41.4; best [('Frigatebird', 28), ('American Goldfinch', 26), ('Yellow breasted Chat', 24)], worst [('Pileated Woodpecker', -23), ('Marsh Wren', -20), ('Least Auklet', -17)]
+photos fixed 641, broken 496, both right 1795, both wrong 2862
