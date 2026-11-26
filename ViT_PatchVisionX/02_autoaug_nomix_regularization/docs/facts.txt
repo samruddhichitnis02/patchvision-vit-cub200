@@ -1,0 +1,47 @@
+EMA gain r0 after ep50 mean 1.95 max 6.67
+attn in box: round01 full 0.660, E4 0.656; r0_reference 0.639, r1_droppath0.2 0.640, r2_droppath0.4 0.652, r3_droppath0.5 0.668, r4_labelsmooth0.2 0.679, r5_wd0.1 0.636, r6_wd0.2 0.657, r7_sam 0.642, r8_combined 0.681
+r0_reference mean confidence 42.2
+r1_droppath0.2 mean confidence 50.0
+r2_droppath0.4 mean confidence 50.0
+r3_droppath0.5 mean confidence 50.3
+r4_labelsmooth0.2 mean confidence 37.4
+r5_wd0.1 mean confidence 43.1
+r6_wd0.2 mean confidence 39.9
+r7_sam mean confidence 43.6
+r8_combined mean confidence 41.7
+round01 full: test 47.39 top5 73.59 f1 47.05 gap 49.8 ece 5.95 val 48.50 best_ep 153 sec/ep 20.1
+round01 E4: test 53.00 top5 78.10 f1 52.74 gap 46.8 ece 10.45 val 53.33 best_ep 252 sec/ep 55.5
+best r8_combined vs round01 full: diff +2.69 n10 592 n01 436 p 1.3e-06; both right 2310 both wrong 2456; species better 122 worse 75 same 3 median +2.88
+species gains: Horned Puffin +23.1, Sooty Albatross +20.7, Western Grebe +19.9 | losses: Least Auklet -35.1, Black throated Sparrow -19.9, Palm Warbler -18.8
+r0 vs round01 full: diff -3.28 n10 448 n01 638 p 9.0e-09
+r8_combined vs E4: diff -2.93 n10 388 n01 558 p 3.6e-08
+r0 vs E4: diff -8.91 n10 283 n01 799 p 1.8e-57
+r8_combined vs r2_droppath0.4: diff +3.64 n10 510 n01 299 p 1.1e-13
+r8_combined vs r3_droppath0.5: diff +2.64 n10 481 n01 328 p 8.3e-08
+r8_combined species: median 51.1; >80 10; <20 13; =0 0
+easiest: Red bellied Woodpecker 85.7, Green Violetear 85.7, Common Yellowthroat 85.2, Magnolia Warbler 83.3, Yellow headed Blackbird 83.0, Painted Bunting 82.8, White breasted Kingfisher 81.4, Rose breasted Grosbeak 81.4, Evening Grosbeak 80.7, Cerulean Warbler 80.7
+hardest: American Crow 3.6, Western Wood Pewee 14.0, Orange crowned Warbler 14.8, White necked Raven 16.0, Mockingbird 16.7, Shiny Cowbird 16.9, Long tailed Jaeger 17.0, Fish Crow 17.5, Common Raven 17.5, House Wren 18.2
+confusions: Common Raven → American Crow 10; Tree Sparrow → House Sparrow 8; American Crow → Common Raven 8; Western Gull → California Gull 8; Elegant Tern → Caspian Tern 7; Great Grey Shrike → Loggerhead Shrike 7; Western Wood Pewee → Olive sided Flycatcher 7; Yellow billed Cuckoo → Black billed Cuckoo 7; Pomarine Jaeger → Black footed Albatross 7; Common Tern → Forsters Tern 6; Long tailed Jaeger → Pomarine Jaeger 6; Anna Hummingbird → Ruby throated Hummingbird 6
+PatchVision-X: val change vs r0 r1_droppath0.2 +0.50, r2_droppath0.4 +3.50, r3_droppath0.5 +3.00, r4_labelsmooth0.2 +2.33, r5_wd0.1 -0.17, r6_wd0.2 +1.33, r7_sam +0.33, r8_combined +5.00; r0 test 44.11 r8 test 50.05
+Plain ViT: val change vs r0 r1_droppath0.2 +1.00, r2_droppath0.4 +3.50, r3_droppath0.5 +3.50, r4_labelsmooth0.2 +0.67, r5_wd0.1 -1.17, r6_wd0.2 +1.17, r7_sam -1.50, r8_combined +3.83; r0 test 36.24 r8 test 42.03
+CNN small: val change vs r0 r1_droppath0.2 +1.67, r2_droppath0.4 -2.00, r3_droppath0.5 -4.00, r4_labelsmooth0.2 +2.17, r5_wd0.1 +2.00, r6_wd0.2 +3.33, r7_sam +0.17, r8_combined +4.00; r0 test 43.75 r8 test 47.65
+CNN large: val change vs r0 r1_droppath0.2 +0.67, r2_droppath0.4 -0.83, r3_droppath0.5 -2.67, r4_labelsmooth0.2 +2.67, r5_wd0.1 +1.83, r6_wd0.2 +4.67, r7_sam +1.50, r8_combined +4.67; r0 test 46.03 r8 test 51.52
+r0_reference: val 46.67 gap 53.5 test 44.11 top5 69.02 f1 43.65 ece 2.33 attn 0.639 best_ep 251 151 min 30.2 s/ep latency 14.4 ms
+r1_droppath0.2: val 47.17 gap 53.5 test 45.72 top5 70.92 f1 45.37 ece 4.44 attn 0.640 best_ep 152 151 min 30.3 s/ep latency 14.2 ms
+r2_droppath0.4: val 50.17 gap 50.2 test 46.48 top5 71.88 f1 46.08 ece 4.01 attn 0.652 best_ep 208 151 min 30.1 s/ep latency 12.6 ms
+r3_droppath0.5: val 49.67 gap 50.7 test 47.46 top5 72.92 f1 46.93 ece 3.19 attn 0.668 best_ep 213 151 min 30.2 s/ep latency 13.8 ms
+r4_labelsmooth0.2: val 49.00 gap 51.0 test 46.25 top5 70.26 f1 45.64 ece 8.82 attn 0.679 best_ep 209 151 min 30.3 s/ep latency 15.4 ms
+r5_wd0.1: val 46.50 gap 54.3 test 44.63 top5 68.12 f1 43.86 ece 1.68 attn 0.636 best_ep 233 152 min 30.3 s/ep latency 13.2 ms
+r6_wd0.2: val 48.00 gap 52.0 test 44.91 top5 68.50 f1 44.35 ece 5.02 attn 0.657 best_ep 287 152 min 30.3 s/ep latency 14.8 ms
+r7_sam: val 47.00 gap 53.0 test 44.75 top5 68.31 f1 44.39 ece 1.80 attn 0.642 best_ep 211 285 min 57.0 s/ep latency 13.5 ms
+r8_combined: val 51.67 gap 48.8 test 50.05 top5 74.46 f1 49.50 ece 8.35 attn 0.681 best_ep 231 148 min 29.6 s/ep latency 13.7 ms
+r0_reference: lowest val loss 2.429 @ 129, final 2.561; clean >=99 first @ 95; final clean 100.0; final gap 54.2; final gate mean 0.495 sparsity 0.0086
+r1_droppath0.2: lowest val loss 2.338 @ 94, final 2.441; clean >=99 first @ 115; final clean 99.8; final gap 54.5; final gate mean 0.492 sparsity 0.0063
+r2_droppath0.4: lowest val loss 2.266 @ 184, final 2.295; clean >=99 first @ 130; final clean 100.0; final gap 50.2; final gate mean 0.495 sparsity 0.0093
+r3_droppath0.5: lowest val loss 2.235 @ 136, final 2.285; clean >=99 first @ 140; final clean 99.8; final gap 51.2; final gate mean 0.496 sparsity 0.0131
+r4_labelsmooth0.2: lowest val loss 2.415 @ 124, final 2.593; clean >=99 first @ 95; final clean 99.8; final gap 53.0; final gate mean 0.492 sparsity 0.0067
+r5_wd0.1: lowest val loss 2.472 @ 97, final 2.621; clean >=99 first @ 105; final clean 100.0; final gap 55.3; final gate mean 0.497 sparsity 0.0014
+r6_wd0.2: lowest val loss 2.371 @ 127, final 2.535; clean >=99 first @ 115; final clean 99.8; final gap 51.8; final gate mean 0.499 sparsity 0.0000
+r7_sam: lowest val loss 2.425 @ 117, final 2.584; clean >=99 first @ 115; final clean 100.0; final gap 54.2; final gate mean 0.496 sparsity 0.0065
+r8_combined: lowest val loss 2.240 @ 130, final 2.301; clean >=99 first @ 130; final clean 100.0; final gap 49.2; final gate mean 0.498 sparsity 0.0000
+final run (validation rule): r8_combined
