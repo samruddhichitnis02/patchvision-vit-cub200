@@ -41,6 +41,25 @@ def _fmt(d: dict, k: str, spec: str = ".2f") -> str:
     return format(d[k], spec) if k in d and d[k] == d[k] else "n/a"
 
 
+class _FrozenBNStats:
+    """BatchNorm layers keep using batch statistics but do NOT update their running mean/var (SAM's second forward
+    pass, so each batch updates the running statistics only once). Only used when the config sets use_sam=True."""
+
+    def __init__(self, model):
+        self.bns = [m for m in model.modules() if isinstance(m, torch.nn.modules.batchnorm._BatchNorm)]
+
+    def __enter__(self):
+        self.saved = [m.momentum for m in self.bns]
+        for m in self.bns:
+            m.momentum = 0.0
+        return self
+
+    def __exit__(self, *exc):
+        for m, mom in zip(self.bns, self.saved):
+            m.momentum = mom
+        return False
+
+
 # ----------------------------------------------------------------------------------------------
 # Evaluation (also used for the final test)
 # ----------------------------------------------------------------------------------------------
@@ -207,7 +226,28 @@ class Trainer:
                 t_prev = time.time()
                 continue
             self.opt.zero_grad(set_to_none=True)
-            if self.scaler is not None:
+            if getattr(tc, "use_sam", False):                     # SAM (optional, off unless the config asks)
+                assert self.scaler is None, "SAM is implemented for bf16 / fp32 (no GradScaler)"
+                out["total"].backward()                                            # 1. gradient at w
+                params = [p for p in model.parameters() if p.grad is not None]
+                with torch.no_grad():
+                    gn = torch.norm(torch.stack([p.grad.norm(2) for p in params]), 2)
+                    scale = tc.sam_rho / (gn + 1e-12)
+                    eps = []
+                    for p in params:                                               # 2. w -> w + rho g/|g|
+                        e = p.grad * scale
+                        p.add_(e)
+                        eps.append(e)
+                self.opt.zero_grad(set_to_none=True)
+                with _FrozenBNStats(model), torch.autocast(dev.type, dtype=self.amp_dtype, enabled=self.use_amp):
+                    logits_adv, aux_adv = model(x_in)
+                self.criterion(logits_adv.float(), soft, aux_adv, pmask, two_views=two)["total"].backward()  # 3.
+                with torch.no_grad():
+                    for p, e in zip(params, eps):                                  #    back to w
+                        p.sub_(e)
+                gnorm = torch.nn.utils.clip_grad_norm_(model.parameters(), tc.grad_clip).item()
+                self.opt.step()
+            elif self.scaler is not None:
                 self.scaler.scale(out["total"]).backward()
                 self.scaler.unscale_(self.opt)
                 gnorm = torch.nn.utils.clip_grad_norm_(model.parameters(), tc.grad_clip).item()
