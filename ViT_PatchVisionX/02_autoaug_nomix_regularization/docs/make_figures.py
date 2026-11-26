@@ -395,6 +395,7 @@ def fig_improvement(df):
     fo = pd.read_csv(R01 / "test_per_class.csv").set_index("class_name").f1
     fn = pd.read_csv(run_dir(best) / "test_per_class.csv").set_index("class_name").f1.loc[fo.index]
     dlt = (fn - fo).sort_values()
+    dlt[dlt.abs() < 1e-9] = 0.0                                  # identical F1 up to float rounding counts as unchanged
     fig, ax = plt.subplots(1, 2, figsize=(13.5, 4.6), gridspec_kw={"width_ratios": [1, 1.6]})
     a0 = ax[0]
     cats = [("both right", int((a & b).sum()), "#bdbdbd"), ("only round 02\nright", n10, RUNS[best][2]),

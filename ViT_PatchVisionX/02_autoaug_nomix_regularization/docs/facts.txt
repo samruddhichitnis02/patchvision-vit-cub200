@@ -11,7 +11,7 @@ r7_sam mean confidence 43.6
 r8_combined mean confidence 41.7
 round01 full: test 47.39 top5 73.59 f1 47.05 gap 49.8 ece 5.95 val 48.50 best_ep 153 sec/ep 20.1
 round01 E4: test 53.00 top5 78.10 f1 52.74 gap 46.8 ece 10.45 val 53.33 best_ep 252 sec/ep 55.5
-best r8_combined vs round01 full: diff +2.69 n10 592 n01 436 p 1.3e-06; both right 2310 both wrong 2456; species better 122 worse 75 same 3 median +2.88
+best r8_combined vs round01 full: diff +2.69 n10 592 n01 436 p 1.3e-06; both right 2310 both wrong 2456; species better 122 worse 73 same 5 median +2.88
 species gains: Horned Puffin +23.1, Sooty Albatross +20.7, Western Grebe +19.9 | losses: Least Auklet -35.1, Black throated Sparrow -19.9, Palm Warbler -18.8
 r0 vs round01 full: diff -3.28 n10 448 n01 638 p 9.0e-09
 r8_combined vs E4: diff -2.93 n10 388 n01 558 p 3.6e-08

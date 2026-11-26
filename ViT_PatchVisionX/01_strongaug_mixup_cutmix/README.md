@@ -281,7 +281,7 @@ How PatchVision-X's attention changed during training (validation photos, every 
 
 ![Calibration](docs/figures/calibration.png)
 
-PatchVision-X is more accurate but **less well calibrated** than `base` (ECE 5.95 % against 2.49 %): it is more confident than it should be.
+PatchVision-X is more accurate but **less well calibrated** than `base` (ECE 5.95 % against 2.49 %). Its error is on the safe side: it is **under-confident**, 41.5 % sure on average while it is right 47.4 % of the time (curve above the diagonal).
 
 <details>
 <summary><b>The run's own plots, as saved by the trainer (click to open)</b></summary>

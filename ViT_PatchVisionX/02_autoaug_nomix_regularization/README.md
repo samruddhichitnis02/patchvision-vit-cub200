@@ -269,15 +269,16 @@ r8 (drop-path 0.4 + label smoothing 0.2 + weight decay 0.2), the run chosen on v
 
 ![Did it improve](docs/figures/pvx_09_did_it_improve.png)
 
-Yes. On the same test photos, only r8 is right on 592 and only `full` on 436 (+2.69 points, p < 0.0001); both are right on 2,310 and both wrong on 2,456. Species by species: 122 species better, 75 worse, 3 unchanged, median change +2.9 F1 points. The biggest gains are Horned Puffin (+23), Sooty Albatross (+21) and Western Grebe (+20); the biggest losses Least Auklet (−35), Black throated Sparrow (−20) and Palm Warbler (−19).
+Yes. On the same test photos, only r8 is right on 592 and only `full` on 436 (+2.69 points, p < 0.0001); both are right on 2,310 and both wrong on 2,456. Species by species: 122 species better, 73 worse, 5 unchanged, median change +2.9 F1 points. The biggest gains are Horned Puffin (+23), Sooty Albatross (+21) and Western Grebe (+20); the biggest losses Least Auklet (−35), Black throated Sparrow (−20) and Palm Warbler (−19).
 
 ### Are the confidence numbers honest?
 
 ![Calibration](docs/figures/pvx_07_calibration.png)
 
 * **r0 is well calibrated** (ECE 2.3 %), better than round 01 `full` (6.0 %).
-* **Label smoothing 0.2 makes PatchVision-X under-confident** (curves above the diagonal): r4 is 37.4 % sure on average while it is right 46.3 % of the time, r8 41.7 % sure while right 50.1 % of the time. That is where the high ECE of r4 (8.8 %) and r8 (8.4 %) comes from. Its answers are more often right than it claims, the safer direction.
-* This is the **opposite of the plain ViT**, where round 02 made the model over-confident and label smoothing 0.2 fixed it. PatchVision-X's r0 is already slightly under-confident (42.2 % sure, right 44.1 %), so the extra smoothing pushes it further the same way.
+* **The high ECE of r8 (8.4 %) is under-confidence** (curves above the diagonal): r8 is 41.7 % sure on average while it is right 50.1 % of the time. Its answers are more often right than it claims, the safer direction. r4 (label smoothing 0.2 alone) is the same: 37.4 % sure, right 46.3 %.
+* **PatchVision-X is under-confident in both rounds.** Round 01 `full` says 41.5 % and is right 47.4 %, E4 says 42.5 % and is right 53.0 %. Its average confidence stays near 42 % while its accuracy goes up, so the more accurate the run, the larger the ECE. Drop-path alone is the exception: r1 to r3 say about 50 % and are right 46 to 47 % (slightly over-confident); label smoothing 0.2 brings r8 back down.
+* This is the **opposite of the plain ViT**, where round 02 made the model over-confident (r0 says 47 %, right 36 %) and label smoothing 0.2 fixed it.
 
 ### Which species are easy and which are hard?
 
@@ -357,7 +358,7 @@ Round 01's E4 winner (`ovf5_dp0.3_autoaug`, [round 01, section 9](../01_strongau
 | Test top-1 | **53.00 %** | 50.05 % |
 | Test top-5 | **78.10 %** | 74.46 % |
 | Memorizing gap | **46.8 pts** | 48.8 pts |
-| ECE | 10.45 % (over-confident) | 8.35 % (under-confident) |
+| ECE | 10.45 % (under-confident: says 42.5 %, right 53.0 %) | 8.35 % (under-confident: says 41.7 %, right 50.1 %) |
 | Attention inside the bird box | 0.66 | **0.68** |
 
 The two recipes differ mainly in **Mixup/CutMix**: E4 has it, r8 does not. On the same photos E4 is right on 558 that r8 gets wrong, r8 on 388 that E4 gets wrong (p < 0.0001). Together with the r0 drop (−3.3 points against `full`), this points to the same finding as for the plain ViT: **for a ViT trained from scratch on this little data, Mixup/CutMix is worth about 3 points**, and the regularizers of round 02 do not replace it. Removing it did not hurt the CNNs.
@@ -405,7 +406,7 @@ Change in **validation** top-1 against each model's own r0, in points:
 * **The combination is clearly better than any single change:** r8 reaches **50.05 %**, +2.7 over round 01 `full` and +2.6 over the best single change.
 * **Regularization slows memorizing but does not stop it:** every run reaches about 100 % on training photos; the best gap is 48.8 points.
 * **The extras keep working under the new recipe:** attention on the bird is 0.64 to 0.68 in every run, and the runs that are more accurate also look more at the bird.
-* **Label smoothing 0.2 makes PatchVision-X under-confident** (ECE 8.4 % in r8, 41.7 % sure while right 50.1 %), the opposite of its effect on the plain ViT.
+* **PatchVision-X is under-confident, in both rounds** (r8: 41.7 % sure while right 50.1 %, ECE 8.4 %). Its confidence stays near 42 % while accuracy rises, so its ECE grows with accuracy. The plain ViT went the other way in round 02 (over-confident without Mixup/CutMix).
 
 ---
 
