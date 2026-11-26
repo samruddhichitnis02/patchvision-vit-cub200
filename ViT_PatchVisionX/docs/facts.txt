@@ -1,0 +1,15 @@
+r8 vs full: +2.69, 592/436, p=1.3e-06; 47.39->50.05; top5 73.59->74.46; f1 47.05->49.50; gap 49.8->48.8; ece 5.95->8.35; val 48.50->51.67; attn 0.660->0.681; epochs 213->300; best ep 153->231; min 71.2->147.9; s/ep 20.1->29.6
+r8 vs e4: -2.93, 388/558, p=3.6e-08; 53.00->50.05; top5 78.10->74.46; f1 52.74->49.50; gap 46.8->48.8; ece 10.45->8.35; val 53.33->51.67; attn 0.656->0.681; epochs 300->300; best ep 252->231; min 277.5->147.9; s/ep 55.5->29.6
+e4 vs full: +5.63, 658/332, p=1.9e-25
+step full -> r0_reference: -3.28, 448/638, p=9e-09; gap 49.8->53.5
+step r0_reference -> r2_droppath0.4: +2.33, 524/389, p=8.9e-06; gap 53.5->50.2
+step r2_droppath0.4 -> r8_combined: +3.64, 510/299, p=1.1e-13; gap 50.2->48.8
+full: min val loss 2.322 @ 140, last val loss 2.436, clean>=99 first @ 180, last clean 99.7, last gap 51.7, peak attn 0.701 @ 36, last attn 0.656
+e4: min val loss 2.049 @ 193, last val loss 2.080, clean>=99 first @ 210, last clean 99.5, last gap 46.5, peak attn 0.671 @ 48, last attn 0.655
+r8_combined: min val loss 2.240 @ 130, last val loss 2.301, clean>=99 first @ 130, last clean 100.0, last gap 49.2, peak attn 0.684 @ 297, last attn 0.684
+round 01 `full`: mean confidence 41.5, accuracy 47.39, ECE 5.95
+round 01 E4: mean confidence 42.5, accuracy 53.00, ECE 10.45
+round 02 r0: mean confidence 42.2, accuracy 44.11, ECE 2.33
+round 02 r8: mean confidence 41.7, accuracy 50.05, ECE 8.35
+species: up 122, down 73, same 5, median +2.88; median F1 47.6->51.1; best [('Horned Puffin', 23), ('Sooty Albatross', 21), ('Western Grebe', 20)], worst [('Least Auklet', -35), ('Black throated Sparrow', -20), ('Palm Warbler', -19)]
+photos fixed 592, broken 436, both right 2310, both wrong 2456
